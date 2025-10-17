@@ -1,0 +1,55 @@
+/* Ant Design Layout 自定义样式 */
+.ant-layout {
+  background: transparent;
+}
+
+.ant-layout-header {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.ant-layout-sider {
+  background: transparent;
+}
+
+.ant-layout-content {
+  margin: 0;
+}
+
+/* 表格自定义样式 */
+.ant-table-wrapper {
+  @apply shadow-[0_24px_60px_rgba(37,99,235,0.06)] rounded-3xl overflow-hidden border border-white/60 backdrop-blur;
+}
+
+.ant-table-thead > tr > th {
+  @apply bg-gradient-to-r from-blue-50 via-white to-sky-50 font-semibold text-slate-600;
+}
+
+.ant-table-tbody > tr:hover > td {
+  @apply bg-blue-50/60;
+}
+
+/* Upload 组件样式 */
+.ant-upload-drag {
+  @apply border-2 border-dashed border-blue-200 rounded-2xl;
+}
+
+.ant-upload-drag:hover {
+  @apply border-blue-400;
+}
+
+/* Form 表单样式 */
+.ant-form-item-label > label {
+  @apply font-medium text-slate-600;
+}
+
+/* Drawer 样式 */
+.ant-drawer-header {
+  @apply border-b;
+}
+
+.ant-drawer-body {
+  @apply p-6;
+}
+

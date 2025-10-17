@@ -1,0 +1,223 @@
+---
+alwaysApply: true
+---
+## **教师合同 OCR 识别与管理系统 **
+
+你是一名精通 **React + TailwindCSS + shadcn/ui + Ant Design 5.0 + FastAPI + PostgreSQL + PaddleOCR** 的全栈系统架构师。
+请你根据以下的需求对系统进行开发
+
+------
+
+### **一、系统目标**
+
+1. 上传教师人事合同扫描件（PDF/JPG）；
+2. OCR 自动识别合同中的关键信息字段；
+3. 识别结果自动入库，可人工修订；
+4. 支持筛选、搜索、导出、导入 Excel；
+5. 所有合同文件加密保存，隐私合规；
+
+------
+
+### **二、系统识别与存储字段**
+
+所有以下字段必须被系统识别、存储并展示在表格中：
+
+```
+员工工号、部门、姓名、职务、性别、年龄、民族、政治面貌、身份证号码、籍贯、
+入职日期、转正日期、合同开始日、合同到期日、在职状态、离职日期、电话号码、
+最高学历、毕业院校、毕业证号、毕业时间、专业、学位、学位证号、教师资格种类、
+教师资格证号、职称等级、职称证号、职称取证时间、参加工作时间、教龄、心理证、
+持证类别、任教年级、任教学科、上一份工作经历、家庭住址、紧急联系人、
+联系电话、普通话等级、备注
+```
+
+要求：
+
+- 所有字段需在数据库中建立相应字段；
+- 前端表格展示与编辑字段与数据库模型保持一一对应；
+- OCR 模块需输出 JSON 与上述字段同名；
+- 置信度低的字段需在前端高亮；
+- 教龄字段由系统自动计算；
+- 日期字段统一格式化为 YYYY-MM-DD；
+- 敏感字段（身份证、电话、地址）加密存储。
+
+------
+
+### **三、系统架构**
+
+- **前端**：React + Vite + TypeScript + TailwindCSS + shadcn/ui + Ant Design 5.0
+- **后端**：FastAPI（Python 3.11）
+- **OCR 模块**：PaddleOCR + 正则解析
+- **数据库**：PostgreSQL 15
+- **文件存储**：Supabase Storage / 本地加密目录
+- **身份认证**：JWT + RBAC
+
+系统数据流说明：
+
+```
+用户上传合同文件
+→ 后端接收并保存文件
+→ 调用 OCR 模块提取文本
+→ 字段解析与正则匹配
+→ 返回 JSON 结果
+→ 保存数据库
+→ 前端展示识别结果（低置信度高亮）
+→ 用户修改确认
+→ 保存修订数据
+→ 支持导出、导入 Excel
+```
+
+------
+
+### **四、前端设计（Tailwind + shadcn/ui + Ant Design 5.0）**
+
+#### 1. 技术栈
+
+| 层级   | 技术                                                         |
+| ------ | ------------------------------------------------------------ |
+| 框架   | React + TypeScript + Vite                                    |
+| 样式   | TailwindCSS + shadcn/ui                                      |
+| 表格   | Ant Design 5.0（Table / EditableCell / Upload / Form / Pagination） |
+| 状态   | Zustand                                                      |
+| 请求   | Axios + React Query                                          |
+| 国际化 | i18next                                                      |
+| 动画   | Framer Motion                                                |
+
+#### 2. 界面模块
+
+- **合同管理页**：核心表格、筛选、导出、导入；
+- **上传模块**：上传合同文件并触发 OCR；
+- **OCR 结果 Drawer**：显示识别文本、置信度；
+- **合同预览页**：查看文件与字段比对；
+- **系统设置页**：字段配置、OCR API 配置。
+
+#### 3. 表格组件要求
+
+- 使用 AntD 5.0 `Table`；
+- 支持 40+ 字段（横向滚动 + 固定列）；
+- 表头分组：
+  - 基础信息（姓名、部门、职务、身份证）；
+  - 教育信息（学历、毕业院校、专业、学位）；
+  - 资格信息（教师证、职称、普通话等级、心理证）；
+  - 合同信息（入职、转正、起止日期、状态）；
+  - 其他（紧急联系人、地址、备注）；
+- 双击编辑 → 自动保存；
+- 低置信度字段高亮；
+- 批量导出、导入 Excel；
+- 可搜索、分页；
+- Drawer 展示 OCR 原文与置信度；
+- 主题由 Tailwind 管理，AntD token 与 Tailwind palette 对齐。
+
+#### 4. 目录结构建议
+
+```
+src/
+ ├─ components/
+ │   ├─ ContractTable.tsx
+ │   ├─ UploadContract.tsx
+ │   ├─ OcrDrawer.tsx
+ │   ├─ Navbar.tsx / Sidebar.tsx
+ │   └─ ThemeToggle.tsx
+ ├─ hooks/
+ │   ├─ useContracts.ts
+ │   ├─ useUpload.ts
+ │   └─ useOcr.ts
+ ├─ store/
+ │   └─ contractsStore.ts
+ ├─ utils/
+ │   └─ fieldMapping.ts
+ ├─ api/
+ │   └─ contractsApi.ts
+ ├─ pages/
+ │   ├─ Contracts.tsx
+ │   ├─ Dashboard.tsx
+ │   └─ Settings.tsx
+ ├─ App.tsx
+ └─ main.tsx
+```
+
+------
+
+### **五、后端设计（FastAPI + PaddleOCR + PostgreSQL）**
+
+#### 1. 主要接口
+
+```python
+POST /contracts/upload    # 上传并OCR识别
+GET  /contracts           # 查询合同（分页、筛选）
+PATCH /contracts/{id}     # 更新单条合同信息
+GET  /contracts/export    # 导出Excel
+POST /contracts/import    # 导入Excel
+```
+
+#### 2. 数据模型
+
+请输出 `SQLAlchemy` 模型（或 Prisma 模型）包含以下字段：
+
+| 字段名            | 类型         | 说明             |
+| ----------------- | ------------ | ---------------- |
+| id                | UUID         | 主键             |
+| teacher_code      | VARCHAR(20)  | 员工工号         |
+| department        | VARCHAR(50)  | 部门             |
+| name              | VARCHAR(50)  | 姓名             |
+| position          | VARCHAR(50)  | 职务             |
+| gender            | VARCHAR(10)  | 性别             |
+| age               | INT          | 年龄             |
+| nation            | VARCHAR(20)  | 民族             |
+| political_status  | VARCHAR(20)  | 政治面貌         |
+| id_number         | VARCHAR(18)  | 身份证号（加密） |
+| birthplace        | VARCHAR(50)  | 籍贯             |
+| entry_date        | DATE         | 入职日期         |
+| regular_date      | DATE         | 转正日期         |
+| contract_start    | DATE         | 合同开始日       |
+| contract_end      | DATE         | 合同到期日       |
+| job_status        | VARCHAR(20)  | 在职状态         |
+| resign_date       | DATE         | 离职日期         |
+| phone_number      | VARCHAR(20)  | 电话号码         |
+| education         | VARCHAR(50)  | 最高学历         |
+| graduation_school | VARCHAR(100) | 毕业院校         |
+| diploma_no        | VARCHAR(50)  | 毕业证号         |
+| graduation_date   | DATE         | 毕业时间         |
+| major             | VARCHAR(100) | 专业             |
+| degree            | VARCHAR(50)  | 学位             |
+| degree_no         | VARCHAR(50)  | 学位证号         |
+| teacher_cert_type | VARCHAR(50)  | 教师资格种类     |
+| teacher_cert_no   | VARCHAR(50)  | 教师资格证号     |
+| title_rank        | VARCHAR(50)  | 职称等级         |
+| title_cert_no     | VARCHAR(50)  | 职称证号         |
+| title_cert_date   | DATE         | 职称取证时间     |
+| start_work_date   | DATE         | 参加工作时间     |
+| teaching_years    | INT          | 教龄             |
+| psychology_cert   | VARCHAR(50)  | 心理证           |
+| certificate_type  | VARCHAR(50)  | 持证类别         |
+| teaching_grade    | VARCHAR(50)  | 任教年级         |
+| teaching_subject  | VARCHAR(50)  | 任教学科         |
+| last_work         | VARCHAR(100) | 上一份工作经历   |
+| address           | VARCHAR(200) | 家庭住址         |
+| emergency_contact | VARCHAR(50)  | 紧急联系人       |
+| emergency_phone   | VARCHAR(20)  | 联系电话         |
+| mandarin_level    | VARCHAR(50)  | 普通话等级       |
+| remarks           | TEXT         | 备注             |
+| file_url          | TEXT         | 合同文件路径     |
+| ocr_confidence    | FLOAT        | 平均置信度       |
+| created_at        | TIMESTAMP    | 创建时间         |
+| updated_at        | TIMESTAMP    | 更新时间         |
+
+#### 3. OCR 模块
+
+- 使用 PaddleOCR；
+- 正则匹配字段（如身份证号、日期、学历、姓名）；
+- 输出统一 JSON；
+- 若置信度 < 0.8 标记为“待复核”；
+- 支持批量识别与单页 PDF 分割；
+- 支持导入 Excel 文件。
+
+------
+
+### **六、安全与合规**
+
+- 身份证号、手机号 AES256 加密；
+- 文件路径随机命名；
+- JWT 鉴权；
+- 操作日志记录所有上传/编辑/导出；
+- 导出文件加时间戳与水印。

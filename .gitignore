@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+frontend/dist/
+frontend/build/
+backend/uploads/
+backend/temp/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OCR temp files
+backend/ocr_temp/
+
+# Encrypted files
+backend/encrypted_files/
+
+# OS
+Thumbs.db
+.DS_Store
+
