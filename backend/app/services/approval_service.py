@@ -25,8 +25,17 @@ class ApprovalService:
     @staticmethod
     def _get_stage_order_map(db: Session) -> Dict[str, int]:
         """获取审批阶段的顺序映射"""
-        stages = db.query(WorkflowStage).filter(WorkflowStage.is_active.is_(True)).all()
-        return {stage.key: stage.order_index for stage in stages}
+        stages = (
+            db.query(WorkflowStage)
+            .filter(WorkflowStage.is_active.is_(True))
+            .order_by(WorkflowStage.order_index.asc())
+            .all()
+        )
+        stage_map: Dict[str, int] = {}
+        for stage in stages:
+            if stage.key:
+                stage_map[stage.key] = stage.order_index or 0
+        return stage_map
     
     @staticmethod
     def _is_predecessor_completed(db: Session, task: ApprovalTask, stage_order_map: Dict[str, int]) -> bool:
@@ -54,17 +63,17 @@ class ApprovalService:
         
         # 查询同一合同的所有审批任务
         all_tasks = (
-            db.query(ApprovalTask)
+            db.query(ApprovalTask.stage, ApprovalTask.status)
             .filter(ApprovalTask.contract_id == task.contract_id)
+            .distinct()
             .all()
         )
         
         # 检查所有前置阶段是否都已完成
-        for other_task in all_tasks:
-            other_order = stage_order_map.get(other_task.stage, 0)
-            # 如果是前置阶段（order 更小）且未完成，返回 False
+        for stage_key, status in all_tasks:
+            other_order = stage_order_map.get(stage_key, 0)
             if other_order < current_order and other_order > 0:
-                if other_task.status != 'completed':
+                if status != 'completed':
                     return False
         
         return True

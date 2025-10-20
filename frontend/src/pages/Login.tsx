@@ -42,8 +42,8 @@ const LoginPage = () => {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090f2c]">
       <div className="absolute left-0 top-0 z-20 flex items-center gap-3 px-10 py-8 text-white">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/30 bg-white/15 text-lg font-semibold">
-          云
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/30 bg-white/15 p-1">
+          <img src="/logo.png" alt="系统 Logo" className="h-full w-full object-contain" />
         </div>
         <div>
           <div className="text-[11px] uppercase tracking-[0.45em] text-white/60">BAYUN ACADEMY</div>

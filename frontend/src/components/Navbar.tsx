@@ -61,10 +61,8 @@ const Navbar = () => {
       </div>
       <Space size="large" className="relative z-10 items-center">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/90 shadow-lg">
-            <span className="text-xl font-semibold" style={{ color: colorPrimary }}>
-              云
-            </span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/90 p-1.5 shadow-lg">
+            <img src="/logo.png" alt="系统 Logo" className="h-full w-full object-contain" />
           </div>
           <div>
             <Title level={3} className="!mb-1 !text-white !tracking-wide">

@@ -102,8 +102,8 @@ const Sidebar = () => {
         <div className="relative flex flex-1 flex-col">
           <div className="border-b border-white/70 px-8 pt-10 pb-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200 bg-white/85 text-lg font-semibold text-blue-600 shadow-sm">
-                云
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200 bg-white/85 p-1.5 shadow-sm">
+                <img src="/logo.png" alt="系统 Logo" className="h-full w-full object-contain" />
               </div>
               <div>
                 <div className="text-[11px] uppercase tracking-[0.45em] text-blue-400">BAYUN ACADEMY</div>

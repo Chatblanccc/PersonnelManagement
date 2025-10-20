@@ -13,11 +13,11 @@ import {
   MenuProps,
   Empty,
   Spin,
-  Modal,
   Input,
   Drawer,
   Progress,
   Steps,
+  App as AntdApp,
 } from "antd"
 import {
   CheckCircleOutlined,
@@ -117,6 +117,7 @@ const ApprovalDashboard = () => {
   const currentUser = useAuthStore((state) => state.user)
   const isSuperuser = currentUser?.is_superuser || false
   const canFetch = Boolean(accessToken) && hasAuditPermission
+  const { modal } = AntdApp.useApp()
   const [activeStatus, setActiveStatus] = useState<ApprovalStatus | "all">("pending")
   const [activeTabKey, setActiveTabKey] = useState<"tasks" | "overview" | "history">("tasks")
   const [selectedStage, setSelectedStage] = useState<ApprovalStageKey | "all">("all")
@@ -373,7 +374,7 @@ const ApprovalDashboard = () => {
 
   const handleApprove = useCallback(
     (task: ApprovalTask) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认通过审批任务",
         content: (
           <div className="space-y-2">
@@ -389,13 +390,13 @@ const ApprovalDashboard = () => {
         onOk: () => approveMutation.mutateAsync({ taskId: task.id }),
       })
     },
-    [approveMutation],
+    [approveMutation, modal],
   )
 
   const handleReturn = useCallback(
     (task: ApprovalTask) => {
       let commentValue = ""
-      Modal.confirm({
+      modal.confirm({
         title: "退回审批任务",
         content: (
           <div className="space-y-3">
@@ -423,12 +424,12 @@ const ApprovalDashboard = () => {
         },
       })
     },
-    [returnMutation],
+    [returnMutation, modal],
   )
 
   const handleDelete = useCallback(
     (task: ApprovalTask) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认删除审批任务",
         content: (
           <div className="space-y-2">
@@ -450,12 +451,12 @@ const ApprovalDashboard = () => {
         onOk: () => deleteMutation.mutateAsync(task.id),
       })
     },
-    [deleteMutation],
+    [deleteMutation, modal],
   )
 
   const handleDeleteAllWorkflow = useCallback(
     (teacher: GroupedTeacherApproval) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认删除整个审批流程",
         content: (
           <div className="space-y-3">
@@ -496,7 +497,7 @@ const ApprovalDashboard = () => {
         },
       })
     },
-    [deleteAllMutation],
+    [deleteAllMutation, modal],
   )
 
   const handleViewProgress = useCallback((teacher: GroupedTeacherApproval) => {
