@@ -13,7 +13,7 @@ from app.schemas.announcement import (
     AnnouncementCreateResponse,
 )
 from app.services.announcement_service import AnnouncementService
-from app.utils.auth import get_current_user, require_permission
+from app.utils.auth import get_current_user, require_permission, require_superuser
 
 router = APIRouter(prefix="/announcements", tags=["校园公告"])
 
@@ -26,13 +26,37 @@ def list_announcements(
     _: User = Depends(get_current_user),
 ):
     items, total = AnnouncementService.list_announcements(db, skip=skip, limit=limit)
-    return AnnouncementListResponse(total=total, items=items)
+    creator_ids = {item.created_by for item in items if item.created_by}
+    creator_map: dict[str, str] = {}
+    if creator_ids:
+        users = (
+            db.query(User.id, User.full_name, User.username)
+            .filter(User.id.in_(creator_ids))
+            .all()
+        )
+        creator_map = {
+            user.id: (user.full_name or user.username or "")
+            for user in users
+        }
+
+    response_items = []
+    for item in items:
+        response = AnnouncementResponse.model_validate(
+            item,
+            from_attributes=True,
+        )
+        response = response.model_copy(
+            update={"created_by_name": creator_map.get(item.created_by)}
+        )
+        response_items.append(response)
+
+    return AnnouncementListResponse(total=total, items=response_items)
 
 
 @router.post(
     "",
     response_model=AnnouncementCreateResponse,
-    dependencies=[Depends(require_permission("announcements.manage"))],
+    dependencies=[Depends(require_superuser)],
 )
 def create_announcement(
     payload: AnnouncementCreate,
@@ -42,13 +66,20 @@ def create_announcement(
     data = payload.dict()
     data["created_by"] = current_user.id
     announcement = AnnouncementService.create_announcement(db, data)
-    return AnnouncementCreateResponse(message="公告发布成功", data=announcement)
+    response = AnnouncementResponse.model_validate(
+        announcement,
+        from_attributes=True,
+    )
+    response = response.model_copy(
+        update={"created_by_name": current_user.full_name or current_user.username}
+    )
+    return AnnouncementCreateResponse(message="公告发布成功", data=response)
 
 
 @router.delete(
     "/{announcement_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permission("announcements.manage"))],
+    dependencies=[Depends(require_superuser)],
 )
 def delete_announcement(
     announcement_id: str,

@@ -26,6 +26,7 @@ class AnnouncementResponse(AnnouncementBase):
     created_at: datetime
     updated_at: datetime
     created_by: str
+    created_by_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

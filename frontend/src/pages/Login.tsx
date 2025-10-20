@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Card, Form, Input, Button, Typography, Space, Divider } from 'antd'
+import { Card, Form, Input, Button, Typography, Divider } from 'antd'
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
-import { motion } from 'framer-motion'
 
 import { login, fetchMe } from '@/api/auth'
 import { useAuthStore } from '@/store/authStore'
@@ -41,91 +40,87 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900/90 to-slate-950 p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-4xl mx-auto"
-      >
-        <div className="grid gap-10 lg:grid-cols-2">
-          <div className="relative hidden flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-10 text-white shadow-2xl backdrop-blur lg:flex">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/40 bg-white/20 text-lg font-semibold">
-                  云
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-[0.4em] text-white/60">BAYUN ACADEMY</div>
-                  <Title level={3} className="!m-0 !text-white">
-                    教师人事合同管理平台
-                  </Title>
-                </div>
-              </div>
-              <Text className="mt-6 block text-base leading-7 text-white/80">
-                支持合同 OCR 智能识别、全流程校核、加密存储与权限审批，让人事档案管理更高效、更安全。
-              </Text>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                <div className="text-sm text-white/80">系统能力一览：</div>
-                <ul className="mt-3 space-y-2 text-xs text-white/70">
-                  <li>· 合同扫描件自动识别并结构化入库</li>
-                  <li>· 40+ 教师人事字段高亮低置信度提醒</li>
-                  <li>· Excel 批量导入导出与流水审计日志</li>
-                  <li>· 基于角色的多维度权限控制与水印导出</li>
-                </ul>
-              </div>
-              <Text className="block text-xs text-white/60">
-                提醒：账号与操作将纳入系统日志审计，确保合规可追溯。
-              </Text>
-            </div>
-          </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090f2c]">
+      <div className="absolute left-0 top-0 z-20 flex items-center gap-3 px-10 py-8 text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/30 bg-white/15 text-lg font-semibold">
+          云
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.45em] text-white/60">BAYUN ACADEMY</div>
+          <Title level={3} className="!m-0 !text-white">
+            教师合同管理系统
+          </Title>
+          <Text className="!text-white/70">Teacher Personnel Contract Management</Text>
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(96,165,250,0.28),transparent_60%),radial-gradient(circle_at_85%_15%,rgba(129,140,248,0.24),transparent_55%),radial-gradient(circle_at_50%_85%,rgba(56,189,248,0.22),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_45%)] mix-blend-screen" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#090f2c] via-[#101845]/90 to-transparent" />
+      </div>
+
+      <div className="relative z-10 flex w-full max-w-lg items-center justify-center px-6 pb-12 pt-24 sm:py-24">
+        <div className="relative w-full">
+          <div className="absolute inset-0 rounded-[36px] bg-white/10" />
+          <div className="absolute inset-0 rounded-[36px] bg-gradient-to-br from-white/40 via-white/20 to-white/5 opacity-80" />
+          <div className="absolute inset-[1.5px] rounded-[34.5px] border border-white/40/50" />
 
           <Card
-            className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/95 shadow-2xl backdrop-blur"
-            styles={{ body: { padding: '48px 40px' } }}
+            className="relative overflow-hidden rounded-[36px] border border-white/25 bg-white/10 shadow-[0_28px_80px_rgba(13,37,78,0.35)] backdrop-blur-3xl"
+            styles={{ body: { padding: '48px 44px', background: 'transparent' } }}
           >
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-32 right-8 h-64 w-64 rounded-full bg-blue-500/10 blur-[140px]" />
-              <div className="absolute bottom-4 left-10 h-32 w-32 rounded-full bg-sky-400/10 blur-[100px]" />
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute right-[-34px] top-[-50px] h-36 w-36 rounded-full bg-blue-300/25 blur-[100px]" />
+              <div className="absolute left-[-50px] bottom-[-60px] h-32 w-32 rounded-full bg-indigo-300/20 blur-[100px]" />
+              <div className="absolute inset-0 rounded-[36px] border border-white/35" />
             </div>
 
-            <div className="relative z-10">
-              <Title level={2} className="!text-slate-800">
-                登录账号
-              </Title>
-              <Text className="!text-slate-500">使用分配的工作账号访问系统</Text>
+            <div className="relative z-10 space-y-6">
+              <header className="space-y-2 text-center">
+                <Title level={2} className="!m-0 !text-white">
+                  登录系统
+                </Title>
+                <Text className="!text-white/70">请输入账号密码，开始您的工作</Text>
+              </header>
 
-              <Divider className="!my-6" />
+              <Divider className="!my-6 !border-white/15">
+                <span className="text-xs uppercase tracking-[0.3em] text-white/50">Account Sign-In</span>
+              </Divider>
 
               <Form
                 layout="vertical"
                 onFinish={handleSubmit}
                 requiredMark={false}
-                initialValues={{ username: 'admin', password: 'Admin@123456' }}
+                className="space-y-4"
               >
                 <Form.Item
                   name="username"
-                  label="账号"
+                  label={<span className="text-sm text-white/80">账号</span>}
                   rules={[{ required: true, message: '请输入账号' }]}
+                  className="mb-0"
                 >
                   <Input
-                    prefix={<UserOutlined className="text-slate-400" />}
+                    prefix={<UserOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
                     size="large"
                     placeholder="请输入工号或账号"
+                    className="!text-white !placeholder:text-white/50"
+                    rootClassName="!h-12 !rounded-2xl !border-white/30 !bg-white/10 !backdrop-blur-2xl !border !border-solid !border-white/30 !shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
                   />
                 </Form.Item>
 
                 <Form.Item
                   name="password"
-                  label="密码"
+                  label={<span className="text-sm text-white/80">密码</span>}
                   rules={[{ required: true, message: '请输入密码' }]}
+                  className="mb-0"
                 >
                   <Input.Password
-                    prefix={<LockOutlined className="text-slate-400" />}
+                    prefix={<LockOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
                     size="large"
                     placeholder="请输入密码"
+                    className="!text-white tracking-[0.08em] !placeholder:text-white/50"
+                    rootClassName="!h-12 !rounded-2xl !border-white/30 !bg-white/10 !backdrop-blur-2xl !border !border-solid !border-white/30 !shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
                   />
                 </Form.Item>
 
@@ -134,25 +129,27 @@ const LoginPage = () => {
                   htmlType="submit"
                   size="large"
                   loading={loading}
-                  className="mt-2 w-full"
+                  className="mt-4 h-12 w-full rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-base font-semibold shadow-[0_22px_42px_rgba(88,80,236,0.4)] transition duration-300 hover:from-blue-400 hover:via-indigo-400 hover:to-purple-400 hover:shadow-[0_24px_46px_rgba(88,80,236,0.45)]"
                 >
                   登录系统
                 </Button>
               </Form>
 
-              <Divider className="!my-6" plain>
-                <span className="text-xs text-slate-400">系统提示</span>
+              <Divider className="!my-6 !border-white/12" plain>
+                <span className="text-xs text-white/45">系统提示</span>
               </Divider>
 
-              <Space direction="vertical" size={8} className="w-full text-xs text-slate-500">
-                <span>默认管理员账号：<strong>admin / Admin@123456</strong></span>
+              <div className="space-y-2 text-xs text-white/65">
+                <span>
+                  默认管理员账号：<strong className="text-white">admin / Admin@123456</strong>
+                </span>
                 <span>首次登录请及时修改密码，确保账号安全。</span>
                 <span>如需开通新账号，请联系信息化中心。</span>
-              </Space>
+              </div>
             </div>
           </Card>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

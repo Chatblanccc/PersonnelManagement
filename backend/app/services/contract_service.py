@@ -332,9 +332,15 @@ class ContractService:
         average_confidence = db.query(func.avg(Contract.ocr_confidence)).filter(Contract.approval_status == "approved").scalar() or 0.0
         
         # 待复核：统计仍在流程中的审批任务数量（pending 或 in_progress）
-        pending_review = db.query(func.count(ApprovalTask.id)).filter(
+        pending_tasks = db.query(ApprovalTask.contract_id).filter(
             ApprovalTask.status.in_(['pending', 'in_progress'])
-        ).scalar() or 0
+        ).all()
+
+        contract_ids = {task.contract_id for task in pending_tasks if task.contract_id}
+        if contract_ids:
+            pending_contracts = db.query(func.count(Contract.id)).filter(Contract.id.in_(contract_ids)).scalar() or 0
+        else:
+            pending_contracts = 0
 
         return {
             'totalTeachersBreakdown': {
@@ -344,9 +350,9 @@ class ContractService:
             'probationTeachers': probation_teachers,
             'expiringWithin90Days': expiring_contracts,
             'averageConfidence': average_confidence,
-            'pendingReview': pending_review,
+            'pendingReview': pending_contracts,
             'sidebarSummary': {
-                'pendingReview': pending_review,
+                'pendingReview': pending_contracts,
                 'probationTeachers': probation_teachers,
                 'expiringWithin30Days': expiring_30_count,
                 'expiringWithin90Days': expiring_contracts,

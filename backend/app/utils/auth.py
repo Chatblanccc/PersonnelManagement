@@ -182,6 +182,13 @@ def require_permission(permission_code: str):
     return dependency
 
 
+def require_superuser(user: User = Depends(get_current_user)) -> User:
+    """确保只有超级管理员可以访问特定接口"""
+    if not user.is_superuser:
+        raise HTTPException(status_code=403, detail="只有超级管理员可以执行此操作")
+    return user
+
+
 def require_roles(*role_names: str):
     def dependency(user: User = Depends(get_current_user)) -> User:
         if user.is_superuser:

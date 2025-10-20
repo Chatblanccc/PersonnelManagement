@@ -11,6 +11,7 @@ export interface AnnouncementItem {
   cover_url?: string
   is_top: boolean
   created_by: string
+  created_by_name?: string
   created_at: string
   updated_at: string
 }
@@ -44,7 +45,9 @@ export const createAnnouncement = async (payload: AnnouncementPayload): Promise<
   return apiClient.post('/announcements', payload)
 }
 
-export const deleteAnnouncement = async (id: string): Promise<{ message: string; id: string }> => {
+export const deleteAnnouncement = async (
+  id: string
+): Promise<{ message: string; id: string; created_by_name?: string }> => {
   return apiClient.delete(`/announcements/${id}`)
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Button,
   Empty,
@@ -37,20 +37,23 @@ interface AnnouncementFormValues {
 const Announcements = () => {
   const user = useAuthStore((state) => state.user)
   const permissions = useAuthStore((state) => state.permissions)
-  const hasPermission = useAuthStore((state) => state.hasPermission)
 
   const isSuperAdmin = useMemo(
     () => Boolean(user?.is_superuser || permissions.includes('*')),
     [permissions, user?.is_superuser]
   )
-  const canManageAnnouncements = isSuperAdmin || hasPermission('announcements.manage')
 
-  const canViewAnnouncements = useMemo(() => {
-    if (isSuperAdmin) return true
-    return hasPermission('announcements.read') || hasPermission('announcements.manage')
-  }, [hasPermission, isSuperAdmin])
+  const canManageAnnouncements = isSuperAdmin
+
+  const canViewAnnouncements = true
 
   const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (!canManageAnnouncements && modalOpen) {
+      setModalOpen(false)
+    }
+  }, [canManageAnnouncements, modalOpen])
   const [form] = Form.useForm<AnnouncementFormValues>()
   const queryClient = useQueryClient()
 
@@ -82,11 +85,16 @@ const Announcements = () => {
   })
 
   const handleOpenModal = () => {
+    if (!canManageAnnouncements) return
     form.resetFields()
     setModalOpen(true)
   }
 
   const handleSubmit = async () => {
+    if (!canManageAnnouncements) {
+      message.error('您没有权限发布公告')
+      return
+    }
     try {
       const values = await form.validateFields()
       const payload: AnnouncementPayload = {
@@ -213,7 +221,7 @@ const Announcements = () => {
                               description="删除后不可恢复，请确认是否继续。"
                               placement="left"
                               okText="删除"
-                              okButtonProps={{ danger: true, loading: deleteMutation.isLoading }}
+                              okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
                               cancelText="取消"
                               onConfirm={() => deleteMutation.mutate(announcement.id)}
                             >
@@ -221,7 +229,7 @@ const Announcements = () => {
                                 type="text"
                                 icon={<DeleteOutlined />}
                                 danger
-                                loading={deleteMutation.isLoading}
+                                loading={deleteMutation.isPending}
                               />
                             </Popconfirm>
                           </Tooltip>
@@ -244,7 +252,7 @@ const Announcements = () => {
                         {createdAt && <span>发布时间：{createdAt}</span>}
                       </div>
                       <div className="flex flex-col gap-1 text-right">
-                        {announcement.created_by && <span>发布人：{announcement.created_by}</span>}
+                        {announcement.created_by_name && <span>发布人：{announcement.created_by_name}</span>}
                       </div>
                     </div>
                   </div>
@@ -257,14 +265,14 @@ const Announcements = () => {
 
       <Modal
         title="添加校园公告"
-        open={modalOpen}
+        open={modalOpen && canManageAnnouncements}
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
-        okText={mutation.isLoading ? '发布中...' : '发布'}
-        confirmLoading={mutation.isLoading}
+        okText={mutation.isPending ? '发布中...' : '发布'}
+        confirmLoading={mutation.isPending}
         destroyOnHidden
       >
-        <Form<AnnouncementFormValues> form={form} layout="vertical">
+        <Form<AnnouncementFormValues> form={form} layout="vertical" disabled={!canManageAnnouncements}>
           <Form.Item
             label="所属区域"
             name="region"
