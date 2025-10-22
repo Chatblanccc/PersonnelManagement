@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
+from logging.config import dictConfig
+from pathlib import Path
 
 from sqlalchemy import text
 
@@ -13,7 +16,81 @@ from app.routers import (
     settings_router,
     profile_router,
     announcement_router,
+    operations_router,
 )
+
+
+def setup_logging() -> None:
+    log_dir = Path("/app/logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            },
+            "access": {
+                "format": "%(asctime)s | %(levelname)s | %(client_addr)s - \"%(request_line)s\" %(status_code)s",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+                "level": "INFO",
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": str(log_dir / "backend.log"),
+                "maxBytes": 5 * 1024 * 1024,
+                "backupCount": 5,
+                "formatter": "default",
+                "level": "INFO",
+            },
+            "access_file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": str(log_dir / "access.log"),
+                "maxBytes": 5 * 1024 * 1024,
+                "backupCount": 3,
+                "formatter": "access",
+                "level": "INFO",
+            },
+        },
+        "loggers": {
+            "uvicorn": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["console", "access_file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "app": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+        "root": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+        },
+    }
+
+    dictConfig(logging_config)
+
+
+setup_logging()
+logger = logging.getLogger("app")
 
 # 数据库补丁：确保新增列存在
 def ensure_contract_columns() -> None:
@@ -39,6 +116,7 @@ async def lifespan(app: FastAPI):
     # 启动时创建表
     Base.metadata.create_all(bind=engine)
     ensure_contract_columns()
+    logger.info("数据库结构初始化完成")
     yield
     # 关闭时的清理工作（如果需要）
 
@@ -75,6 +153,7 @@ app.include_router(approvals_router, prefix="/api", tags=["approvals"])
 app.include_router(settings_router, prefix="/api", tags=["settings"])
 app.include_router(profile_router, prefix="/api", tags=["profile"])
 app.include_router(announcement_router, prefix="/api", tags=["announcements"])
+app.include_router(operations_router, prefix="/api", tags=["operations"])
 
 @app.get("/")
 async def root():

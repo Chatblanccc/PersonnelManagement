@@ -1,0 +1,48 @@
+name: pm-local
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: pm_postgres_local
+    env_file: docker/env/database.local.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pm_pgdata_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pm_backend_local
+    env_file: docker/env/backend.local.env
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./storage/contracts:/data/contracts
+      - ./logs/backend:/app/logs
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pm_frontend_local
+    env_file: docker/env/frontend.local.env
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+volumes:
+  pm_pgdata_local:
+

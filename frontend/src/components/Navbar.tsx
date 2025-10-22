@@ -1,7 +1,6 @@
-import { Layout, Typography, Space, Button, theme, Tag, Badge, Dropdown } from 'antd'
+import { Layout, Typography, Space, Button, theme, Tag, Badge } from 'antd'
 import { UserOutlined, LogoutOutlined, BellOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import type { MenuProps } from 'antd'
 
 import { useAuthStore } from '@/store/authStore'
 import { getRoleDisplayLabel } from '@/utils/role'
@@ -32,16 +31,6 @@ const Navbar = () => {
     navigate('/profile')
   }
   
-  // 用户下拉菜单
-  const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      label: '个人中心',
-      icon: <UserOutlined />,
-      onClick: handleProfileClick,
-    },
-  ]
-
   const {
     token: { colorBgContainer, colorPrimary },
   } = theme.useToken()

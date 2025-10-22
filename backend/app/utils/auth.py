@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -171,7 +171,11 @@ def get_current_user(
 
 
 def require_permission(permission_code: str):
-    def dependency(user: User = Depends(get_current_user)) -> User:
+    def dependency(
+        request: Request,
+        user: User = Depends(get_current_user),
+    ) -> User:
+        request.state.user = user
         if user.is_superuser:
             return user
         for role in user.roles:
@@ -182,15 +186,17 @@ def require_permission(permission_code: str):
     return dependency
 
 
-def require_superuser(user: User = Depends(get_current_user)) -> User:
+def require_superuser(request: Request, user: User = Depends(get_current_user)) -> User:
     """确保只有超级管理员可以访问特定接口"""
+    request.state.user = user
     if not user.is_superuser:
         raise HTTPException(status_code=403, detail="只有超级管理员可以执行此操作")
     return user
 
 
 def require_roles(*role_names: str):
-    def dependency(user: User = Depends(get_current_user)) -> User:
+    def dependency(request: Request, user: User = Depends(get_current_user)) -> User:
+        request.state.user = user
         if user.is_superuser:
             return user
         user_role_names = {role.name for role in user.roles}

@@ -35,6 +35,7 @@ from .auth import (
     RoleUpdate,
     RoleListResponse,
 )
+from .operation_log import OperationLogQuery, OperationLogResponse, OperationLogItem
 
 __all__ = [
     "ContractCreate",
@@ -61,5 +62,8 @@ __all__ = [
     "RoleCreate",
     "RoleUpdate",
     "RoleListResponse",
+    "OperationLogQuery",
+    "OperationLogResponse",
+    "OperationLogItem",
 ]
 

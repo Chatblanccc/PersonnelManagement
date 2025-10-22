@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query
+﻿from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -19,6 +19,7 @@ from app.schemas.contract import (
     ContractLifecycleResponse,
 )
 from app.services.contract_service import ContractService
+from app.services.operation_log_service import OperationLogService
 from app.models.contract import Contract
 from app.ocr.ocr_service import ocr_service
 from app.utils.excel_export import exporter
@@ -35,6 +36,7 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 @router.post("/contracts/upload", response_model=OcrResult, dependencies=[Depends(require_permission("contracts.create"))])
 async def upload_contract(
     file: UploadFile = File(...),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -74,11 +76,22 @@ async def upload_contract(
         # 添加文件路径
         fields['file_url'] = file_path
         
-        return OcrResult(
+        result = OcrResult(
             contract=fields,
             confidence=confidence,
             raw_text=raw_text
         )
+        OperationLogService.log(
+            db=db,
+            module="contracts",
+            action="upload",
+            operator=request.state.user if hasattr(request.state, "user") else None,
+            summary=f"上传合同文件 {file.filename}",
+            detail=f"临时文件路径: {file_path}",
+            request=request,
+            extra={"confidence": confidence},
+        )
+        return result
     except Exception as e:
         # 删除上传的文件
         if os.path.exists(file_path):
@@ -107,6 +120,7 @@ async def download_contract_template():
 @router.post("/contracts/import", dependencies=[Depends(require_permission("contracts.import"))])
 async def import_contracts(
     file: UploadFile = File(...),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -163,12 +177,25 @@ async def import_contracts(
             except Exception as exc:
                 errors.append(f'第 {row_index} 行创建失败：{exc}')
 
-    return {
+    result = {
         "imported": created + updated,
         "created": created,
         "updated": updated,
         "errors": errors,
     }
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="import",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"导入合同 Excel，新增 {created} 条，更新 {updated} 条",
+        detail="; ".join(errors) if errors else None,
+        request=request,
+        extra={"filename": file.filename, "created": created, "updated": updated, "errors": errors},
+    )
+
+    return result
 
 
 
@@ -213,6 +240,7 @@ async def export_contracts(
     search: Optional[str] = None,
     approval_status: Optional[str] = Query('approved'),
     ids: Optional[list[str]] = Query(None),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -233,7 +261,7 @@ async def export_contracts(
     # 返回文件流
     filename = f"contracts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
-    return StreamingResponse(
+    response = StreamingResponse(
         io.BytesIO(excel_data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
@@ -241,10 +269,30 @@ async def export_contracts(
         }
     )
 
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="export",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary="导出合同列表",
+        detail=f"导出文件 {filename}",
+        request=request,
+        extra={
+            "department": department,
+            "job_status": job_status,
+            "search": search,
+            "approval_status": approval_status,
+            "ids": ids,
+        },
+    )
+
+    return response
+
 
 @router.get("/contracts/{contract_id}", response_model=ContractResponse, dependencies=[Depends(require_permission("contracts.read"))])
 async def get_contract(
     contract_id: str,
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -254,23 +302,53 @@ async def get_contract(
     if not contract:
         raise HTTPException(status_code=404, detail="合同不存在")
     
-    return ContractResponse.model_validate(contract)
+    response = ContractResponse.model_validate(contract)
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="fetch_detail",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"查看合同 {contract.name} ({contract.teacher_code})",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+        target_name=contract.name,
+    )
+
+    return response
 
 
 @router.get("/contracts/{contract_id}/lifecycle", response_model=ContractLifecycleResponse, dependencies=[Depends(require_permission("contracts.read"))])
 async def get_contract_lifecycle(
     contract_id: str,
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     lifecycle = ContractService.get_contract_lifecycle(db, contract_id)
     if not lifecycle:
         raise HTTPException(status_code=404, detail="合同不存在")
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="fetch_lifecycle",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"查看合同生命周期 {lifecycle.contract.name}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+        target_name=lifecycle.contract.name,
+    )
+
     return lifecycle
 
 
 @router.post("/contracts", response_model=ContractResponse, dependencies=[Depends(require_permission("contracts.create"))])
 async def create_contract(
     contract: ContractCreate,
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -278,7 +356,21 @@ async def create_contract(
     """
     try:
         db_contract = ContractService.create_contract(db, contract)
-        return ContractResponse.model_validate(db_contract)
+        response = ContractResponse.model_validate(db_contract)
+        OperationLogService.log(
+            db=db,
+            module="contracts",
+            action="create",
+            operator=request.state.user if hasattr(request.state, "user") else None,
+            summary=f"创建合同 {db_contract.name} ({db_contract.teacher_code})",
+            detail=f"合同ID: {db_contract.id}",
+            request=request,
+            target_type="contract",
+            target_id=db_contract.id,
+            target_name=db_contract.name,
+            extra={"approval_status": db_contract.approval_status},
+        )
+        return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"创建失败: {str(e)}")
 
@@ -287,6 +379,7 @@ async def create_contract(
 async def update_contract(
     contract_id: str,
     contract_update: ContractUpdate,
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -296,12 +389,29 @@ async def update_contract(
     if not contract:
         raise HTTPException(status_code=404, detail="合同不存在")
     
-    return ContractResponse.model_validate(contract)
+    response = ContractResponse.model_validate(contract)
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="update",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"更新合同 {contract.name} ({contract.teacher_code})",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+        target_name=contract.name,
+        extra=contract_update.model_dump(exclude_unset=True),
+    )
+
+    return response
 
 
 @router.delete("/contracts/{contract_id}", dependencies=[Depends(require_permission("contracts.delete"))])
 async def delete_contract(
     contract_id: str,
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -310,7 +420,19 @@ async def delete_contract(
     success = ContractService.delete_contract(db, contract_id)
     if not success:
         raise HTTPException(status_code=404, detail="合同不存在")
-    
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="delete",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"删除合同 {contract_id}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
     return {"message": "删除成功"}
 
 

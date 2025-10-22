@@ -140,10 +140,6 @@ const LoginPage = () => {
               </Divider>
 
               <div className="space-y-2 text-xs text-white/65">
-                <span>
-                  默认管理员账号：<strong className="text-white">admin / Admin@123456</strong>
-                </span>
-                <span>首次登录请及时修改密码，确保账号安全。</span>
                 <span>如需开通新账号，请联系信息化中心。</span>
               </div>
             </div>
