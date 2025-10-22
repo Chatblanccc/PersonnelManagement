@@ -40,7 +40,12 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090f2c]">
+    <div
+      className="relative flex min-h-screen items-center justify-center overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, rgba(37,99,235,0.96), rgba(56,189,248,0.9))',
+      }}
+    >
       <div className="absolute left-0 top-0 z-20 flex items-center gap-3 px-10 py-8 text-white">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/30 bg-white/15 p-1">
           <img src="/logo.png" alt="系统 Logo" className="h-full w-full object-contain" />
@@ -48,16 +53,17 @@ const LoginPage = () => {
         <div>
           <div className="text-[11px] uppercase tracking-[0.45em] text-white/60">BAYUN ACADEMY</div>
           <Title level={3} className="!m-0 !text-white">
-            教师合同管理系统
+            白云实验学校 · 教师合同管理平台
           </Title>
-          <Text className="!text-white/70">Teacher Personnel Contract Management</Text>
+          <Text className="!text-white/70">暨实校区 · 数智人事管理中心</Text>
         </div>
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(96,165,250,0.28),transparent_60%),radial-gradient(circle_at_85%_15%,rgba(129,140,248,0.24),transparent_55%),radial-gradient(circle_at_50%_85%,rgba(56,189,248,0.22),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_45%)] mix-blend-screen" />
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#090f2c] via-[#101845]/90 to-transparent" />
+        <div className="absolute -top-32 left-16 h-72 w-72 rounded-full bg-white/35 blur-[120px]" />
+        <div className="absolute -bottom-40 right-0 h-80 w-80 rounded-full bg-sky-200/45 blur-[140px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_55%)] mix-blend-screen" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0b173f]/70 via-transparent to-transparent" />
       </div>
 
       <div className="relative z-10 flex w-full max-w-lg items-center justify-center px-6 pb-12 pt-24 sm:py-24">
@@ -129,7 +135,7 @@ const LoginPage = () => {
                   htmlType="submit"
                   size="large"
                   loading={loading}
-                  className="mt-4 h-12 w-full rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-base font-semibold shadow-[0_22px_42px_rgba(88,80,236,0.4)] transition duration-300 hover:from-blue-400 hover:via-indigo-400 hover:to-purple-400 hover:shadow-[0_24px_46px_rgba(88,80,236,0.45)]"
+                  className="mt-4 h-12 w-full rounded-2xl backdrop-blur-xl bg-white/30 border border-white/40 text-[#0b173f] font-semibold shadow-[inset_1px_1px_2px_rgba(255,255,255,0.3),_0_4px_20px_rgba(0,0,0,0.1)] hover:bg-white/40 hover:shadow-[0_6px_24px_rgba(0,0,0,0.15)] transition duration-300"
                 >
                   登录系统
                 </Button>
@@ -139,8 +145,10 @@ const LoginPage = () => {
                 <span className="text-xs text-white/45">系统提示</span>
               </Divider>
 
-              <div className="space-y-2 text-xs text-white/65">
-                <span>如需开通新账号，请联系信息化中心。</span>
+              <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-center text-[11px] text-white/70 shadow-[inset_0_1px_8px_rgba(255,255,255,0.15)]">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_55%)]" />
+                <p className="relative z-10 leading-relaxed">如需开通新账号，请钉钉联系信息化中心冯杰主任、陈昕昊老师</p>
+                <p className="relative z-10 mt-1 text-[10px] tracking-widest text-white/55">© 2025 白云实验学校暨实校区版权所有</p>
               </div>
             </div>
           </Card>
