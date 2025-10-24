@@ -22,8 +22,8 @@ INT_FIELDS = {'age', 'teaching_years'}
 
 MANDATORY_FIELDS = {'teacher_code', 'name'}
 
-LABEL_TO_FIELD = {label: key for key, label in ExcelExporter.EXPORT_FIELDS}
-FIELD_TO_LABEL = {key: label for key, label in ExcelExporter.EXPORT_FIELDS}
+LABEL_TO_FIELD = {label: key for key, label in ExcelExporter.DEFAULT_EXPORT_FIELDS}
+FIELD_TO_LABEL = {key: label for key, label in ExcelExporter.DEFAULT_EXPORT_FIELDS}
 
 DATE_FORMATS = (
     '%Y-%m-%d',

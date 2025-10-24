@@ -84,6 +84,8 @@ const Dashboard = () => {
             iconClassName: 'bg-amber-100 text-amber-600',
             background: 'linear-gradient(135deg, rgba(251,146,60,0.95), rgba(234,179,8,0.92))',
             footer: '建议提前 30 日完成续签沟通',
+            onClick: () =>
+              navigate('/ledger?filter=expiringSoon'),
           },
           {
             title: '待复核',
@@ -98,6 +100,8 @@ const Dashboard = () => {
           <Col xs={24} sm={12} lg={6} key={item.title}>
             <motion.div whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 200, damping: 15 }}>
               <Card
+                onClick={item.onClick}
+                hoverable={Boolean(item.onClick)}
                 className="relative overflow-hidden border-none text-white"
                 styles={{
                   body: {

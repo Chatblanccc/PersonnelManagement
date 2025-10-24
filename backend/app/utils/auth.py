@@ -178,9 +178,41 @@ def require_permission(permission_code: str):
         request.state.user = user
         if user.is_superuser:
             return user
+        if any(role.name == "Administrator" for role in user.roles):
+            return user
         for role in user.roles:
             if any(perm.code == permission_code for perm in role.permissions):
                 return user
+        raise HTTPException(status_code=403, detail="权限不足")
+
+    return dependency
+
+
+def require_any_permission(*permission_codes: str):
+    def dependency(
+        request: Request,
+        user: User = Depends(get_current_user),
+    ) -> User:
+        request.state.user = user
+        if user.is_superuser:
+            return user
+        if any(role.name == "Administrator" for role in user.roles):
+            return user
+
+        # 聚合用户拥有的权限编码
+        user_permissions = {
+            perm.code
+            for role in user.roles
+            for perm in role.permissions
+        }
+
+        if "*" in user_permissions or "system.admin" in user_permissions:
+            return user
+
+        for code in permission_codes:
+            if code in user_permissions:
+                return user
+
         raise HTTPException(status_code=403, detail="权限不足")
 
     return dependency

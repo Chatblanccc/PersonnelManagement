@@ -7,7 +7,7 @@ import { DeleteOutlined, EyeOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { Contract, ContractApprovalStatus } from '@/types/contract'
 import { useDeleteContract, useUpdateContract } from '@/hooks/useContracts'
-import { fieldConfigs } from '@/utils/fieldMapping'
+import { staticFieldConfigs } from '@/utils/fieldMapping'
 import { formatDate } from '@/utils/date'
 import ContractDetailDrawer from '@/components/ContractDetailDrawer'
 import { useContractLifecycle } from '@/hooks/useContracts'
@@ -65,8 +65,8 @@ const ContractTable = ({ data, loading, pagination, onSelectionChange }: Contrac
     ] as const
 
     return primaryKeys
-      .map((key) => fieldConfigs.find((config) => config.key === key))
-      .filter((config): config is typeof fieldConfigs[number] => Boolean(config))
+      .map((key) => staticFieldConfigs.find((config) => config.key === key))
+      .filter((config): config is typeof staticFieldConfigs[number] => Boolean(config))
   }, [])
 
   const handleViewDetail = useCallback((record: Contract) => {
@@ -101,7 +101,7 @@ const ContractTable = ({ data, loading, pagination, onSelectionChange }: Contrac
   const renderEditableCell = (
     value: any,
     record: Contract,
-    config: typeof fieldConfigs[0]
+    config: typeof staticFieldConfigs[0]
   ) => {
     const editing = isEditing(record, config.key)
     

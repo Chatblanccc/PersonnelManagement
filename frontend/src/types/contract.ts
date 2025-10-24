@@ -139,6 +139,7 @@ export interface ContractQuery {
   search?: string
   ids?: string[]
   approval_status?: ContractApprovalStatus | "all"
+  expiring_within_days?: number
 }
 
 // 分页响应

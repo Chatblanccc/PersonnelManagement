@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.routers import (
     contracts_router,
     auth_router,
@@ -32,7 +32,7 @@ def setup_logging() -> None:
                 "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
             },
             "access": {
-                "format": "%(asctime)s | %(levelname)s | %(client_addr)s - \"%(request_line)s\" %(status_code)s",
+                "format": "%(asctime)s | %(levelname)s | %(message)s",
             },
         },
         "handlers": {
@@ -116,6 +116,16 @@ async def lifespan(app: FastAPI):
     # 启动时创建表
     Base.metadata.create_all(bind=engine)
     ensure_contract_columns()
+    
+    # 初始化字段配置（容错处理）
+    try:
+        from app.services.field_config_service import FieldConfigService
+        with SessionLocal() as session:
+            FieldConfigService.bootstrap_defaults(session)
+        logger.info("字段配置初始化完成")
+    except Exception as e:
+        logger.warning(f"字段配置初始化失败（非致命错误）: {e}")
+    
     logger.info("数据库结构初始化完成")
     yield
     # 关闭时的清理工作（如果需要）

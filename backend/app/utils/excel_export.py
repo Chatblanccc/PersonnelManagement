@@ -1,6 +1,6 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
-from typing import List
+from typing import List, Sequence
 from datetime import datetime
 import io
 
@@ -10,7 +10,7 @@ class ExcelExporter:
     """Excel 导出工具"""
     
     # 定义导出的字段和表头
-    EXPORT_FIELDS = [
+    DEFAULT_EXPORT_FIELDS = [
         ('teacher_code', '员工工号'),
         ('name', '姓名'),
         ('department', '部门'),
@@ -58,7 +58,10 @@ class ExcelExporter:
     ]
     
     @staticmethod
-    def export_contracts(contracts: List[Contract]) -> bytes:
+    def export_contracts(
+        contracts: List[Contract],
+        fields: Sequence[tuple[str, str]] | None = None,
+    ) -> bytes:
         """
         导出合同列表为 Excel 文件
         返回：Excel 文件的字节数据
@@ -73,7 +76,9 @@ class ExcelExporter:
         header_alignment = Alignment(horizontal="center", vertical="center")
         
         # 写入表头
-        for col_idx, (_, header) in enumerate(ExcelExporter.EXPORT_FIELDS, start=1):
+        export_fields = list(fields or ExcelExporter.DEFAULT_EXPORT_FIELDS)
+
+        for col_idx, (_, header) in enumerate(export_fields, start=1):
             cell = ws.cell(row=1, column=col_idx, value=header)
             cell.font = header_font
             cell.fill = header_fill
@@ -81,7 +86,7 @@ class ExcelExporter:
         
         # 写入数据
         for row_idx, contract in enumerate(contracts, start=2):
-            for col_idx, (field, _) in enumerate(ExcelExporter.EXPORT_FIELDS, start=1):
+            for col_idx, (field, _) in enumerate(export_fields, start=1):
                 value = getattr(contract, field, '')
                 
                 # 格式化日期
@@ -99,7 +104,7 @@ class ExcelExporter:
                 ws.cell(row=row_idx, column=col_idx, value=value)
         
         # 自动调整列宽
-        for col_idx, (_, header) in enumerate(ExcelExporter.EXPORT_FIELDS, start=1):
+        for col_idx, (_, header) in enumerate(export_fields, start=1):
             ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = len(header) * 2 + 5
         
         # 添加水印信息
@@ -114,7 +119,9 @@ class ExcelExporter:
         return output.getvalue()
 
     @staticmethod
-    def generate_template() -> bytes:
+    def generate_template(
+        fields: Sequence[tuple[str, str]] | None = None,
+    ) -> bytes:
         """
         生成导入模板
         """
@@ -126,7 +133,9 @@ class ExcelExporter:
         header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
         header_alignment = Alignment(horizontal="center", vertical="center")
 
-        for col_idx, (_, header) in enumerate(ExcelExporter.EXPORT_FIELDS, start=1):
+        export_fields = list(fields or ExcelExporter.DEFAULT_EXPORT_FIELDS)
+
+        for col_idx, (_, header) in enumerate(export_fields, start=1):
             cell = ws.cell(row=1, column=col_idx, value=header)
             cell.font = header_font
             cell.fill = header_fill

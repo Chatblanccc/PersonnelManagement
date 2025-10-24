@@ -28,7 +28,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons'
 import type { Contract, ContractLifecycleDetail, ContractLifecycleSummary } from '@/types/contract'
-import { fieldConfigs, fieldGroups } from '@/utils/fieldMapping'
+import { staticFieldConfigs, fieldGroups } from '@/utils/fieldMapping'
 import { formatDate } from '@/utils/date'
 
 const { Text } = Typography
@@ -124,7 +124,7 @@ const ContractDetailDrawer = ({ open, contract, onClose, lifecycleDetail, lifecy
   }
 
   const renderValue = (key: string) => {
-    const config = fieldConfigs.find((item) => item.key === key)
+    const config = staticFieldConfigs.find((item) => item.key === key)
     const value = contract[key as keyof Contract]
 
     if (value === null || value === undefined || value === '') {
@@ -139,7 +139,7 @@ const ContractDetailDrawer = ({ open, contract, onClose, lifecycleDetail, lifecy
   }
 
   const groupedFields = Object.entries(fieldGroups).map(([groupKey, groupLabel]) => {
-    const fields = fieldConfigs.filter((config) => config.group === groupKey)
+    const fields = staticFieldConfigs.filter((config) => config.group === groupKey)
     return {
       key: groupKey,
       label: groupLabel,

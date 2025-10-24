@@ -17,6 +17,7 @@ interface ContractsState {
     job_status?: string
     search?: string
     approval_status?: ContractApprovalStatus | 'all'
+    expiring_within_days?: number
   }
   setFilters: (filters: ContractsState['filters']) => void
 

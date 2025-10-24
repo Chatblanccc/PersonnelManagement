@@ -3,7 +3,6 @@ export interface FieldConfig {
   key: string
   label: string
   width?: number
-  fixed?: 'left' | 'right'
   group: string
   editable?: boolean
   required?: boolean
@@ -22,7 +21,7 @@ export const fieldGroups = {
 }
 
 // 所有字段配置
-export const fieldConfigs: FieldConfig[] = [
+export const staticFieldConfigs: FieldConfig[] = [
   // 基础信息
   { key: 'teacher_code', label: '员工工号', width: 130, group: 'basic', editable: true, required: true },
   { key: 'name', label: '姓名', width: 110, group: 'basic', editable: true, required: true },
@@ -82,12 +81,21 @@ export const fieldConfigs: FieldConfig[] = [
 
 // 根据字段 key 获取配置
 export const getFieldConfig = (key: string): FieldConfig | undefined => {
-  return fieldConfigs.find(config => config.key === key)
+  return staticFieldConfigs.find((config) => config.key === key)
 }
 
 // 获取某个分组的所有字段
-export const getFieldsByGroup = (group: string): FieldConfig[] => {
-  return fieldConfigs.filter(config => config.group === group)
+export const getFieldTypeLabel = (type?: FieldConfig['type']) => {
+  switch (type) {
+    case 'date':
+      return '日期'
+    case 'number':
+      return '数字'
+    case 'select':
+      return '下拉选项'
+    default:
+      return '文本'
+  }
 }
 
 // 敏感字段列表（需要加密）
@@ -106,7 +114,7 @@ export const dateFields = [
 ]
 
 // 必填字段
-export const requiredFields = fieldConfigs
-  .filter(config => config.required)
-  .map(config => config.key)
+export const requiredFields = staticFieldConfigs
+  .filter((config) => config.required)
+  .map((config) => config.key)
 

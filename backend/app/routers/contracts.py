@@ -207,6 +207,7 @@ async def get_contracts(
     job_status: Optional[str] = None,
     search: Optional[str] = None,
     approval_status: Optional[str] = Query('approved'),
+    expiring_within_days: Optional[int] = Query(None, ge=1, le=365),
     db: Session = Depends(get_db)
 ):
     """
@@ -220,6 +221,7 @@ async def get_contracts(
         job_status=job_status,
         search=search,
         approval_status=approval_status,
+        expiring_within_days=expiring_within_days,
     )
     
     total_pages = math.ceil(total / page_size)

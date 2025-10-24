@@ -15,14 +15,27 @@ import {
   Input,
   message,
   Spin,
+  Modal,
+  Row,
+  Col,
 } from 'antd'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import type { FieldConfig } from '@/utils/fieldMapping'
-import { fieldGroups, fieldConfigs, sensitiveFields } from '@/utils/fieldMapping'
-import { getWorkflowConfig, updateWorkflowConfig } from '@/api/settings'
-import type { WorkflowConfigResponse } from '@/types/settings'
+import { fieldGroups, staticFieldConfigs, sensitiveFields, getFieldTypeLabel } from '@/utils/fieldMapping'
+import {
+  getWorkflowConfig,
+  updateWorkflowConfig,
+  listFieldConfigs,
+  createFieldConfig,
+  exportFieldConfigs,
+} from '@/api/settings'
+import type {
+  WorkflowConfigResponse,
+  FieldConfigResponse,
+  FieldConfigCreate,
+} from '@/types/settings'
+import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 
@@ -48,6 +61,20 @@ interface WorkflowFormValues {
   stages?: Record<string, WorkflowStageFormValue>
 }
 
+interface FieldFormValues {
+  key: string
+  label: string
+  group: string
+  type?: 'text' | 'date' | 'number' | 'select'
+  width?: number
+  editable?: boolean
+  required?: boolean
+  fixed?: boolean
+  options?: string
+  description?: string
+  order_index?: number
+}
+
 const notificationChannelOptions = [
   { label: '企业微信', value: 'wechat' },
   { label: '邮件', value: 'email' },
@@ -65,37 +92,55 @@ const excelTemplateOptions = [
   { label: '教师合同模板 · 国际部', value: 'international_contract' },
 ]
 
-const getFieldTypeLabel = (type?: FieldConfig['type']) => {
-  switch (type) {
-    case 'date':
-      return '日期'
-    case 'number':
-      return '数字'
-    case 'select':
-      return '下拉选项'
-    default:
-      return '文本'
-  }
-}
-
 const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') ?? 'workflow'
 
-  const groupedFieldConfigs = useMemo(
-    () =>
-      Object.entries(fieldGroups).map(([groupKey, groupLabel]) => ({
-        key: groupKey,
-        label: groupLabel,
-        fields: fieldConfigs.filter((config) => config.group === groupKey),
-      })),
-    [],
-  )
+  const [fieldForm] = Form.useForm<FieldFormValues>()
+  const [fieldsLoading, setFieldsLoading] = useState(false)
+  const [fieldModalOpen, setFieldModalOpen] = useState(false)
+  const [exportingFields, setExportingFields] = useState(false)
+  const [customFields, setCustomFields] = useState<FieldConfigResponse[]>([])
+
+  const groupedFieldConfigs = useMemo(() => {
+    const staticConfigs = staticFieldConfigs.map((item) => ({
+      ...item,
+      is_custom: false,
+      description: undefined,
+      fixed: Boolean((item as any).fixed),
+    }))
+
+    const mergedMap = new Map<string, (typeof staticConfigs)[number] | FieldConfigResponse>()
+
+    staticConfigs.forEach((item) => {
+      mergedMap.set(item.key, item)
+    })
+
+    customFields.forEach((item) => {
+      mergedMap.set(item.key, item)
+    })
+
+    const merged = Array.from(mergedMap.values())
+
+    return Object.entries(fieldGroups).map(([groupKey, groupLabel]) => ({
+      key: groupKey,
+      label: groupLabel,
+      fields: merged
+        .filter((config) => config.group === groupKey)
+        .sort((a, b) => {
+          const aOrder = 'order_index' in a && typeof (a as any).order_index === 'number' ? (a as any).order_index : 1000
+          const bOrder = 'order_index' in b && typeof (b as any).order_index === 'number' ? (b as any).order_index : 1000
+          return aOrder - bOrder || a.label.localeCompare(b.label)
+        }),
+    }))
+  }, [customFields])
+
+  const customGroupedFields = groupedFieldConfigs
 
   const sensitiveFieldOptions = useMemo(
     () =>
       sensitiveFields.map((fieldKey) => {
-        const found = fieldConfigs.find((item) => item.key === fieldKey)
+        const found = staticFieldConfigs.find((item) => item.key === fieldKey)
         return {
           label: found?.label ?? fieldKey,
           value: fieldKey,
@@ -444,7 +489,80 @@ const Settings = () => {
       </Card>
     </Space>
   )
-const fieldsTabContent = (
+
+  const fetchFieldConfigs = useCallback(async () => {
+    setFieldsLoading(true)
+    try {
+      const response = await listFieldConfigs()
+      setCustomFields(response.items)
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        console.warn('字段配置接口 404，展示静态默认字段即可')
+      } else {
+        console.error('Failed to fetch field configs', error)
+        messageApi.error('字段配置加载失败，请稍后再试')
+      }
+    } finally {
+      setFieldsLoading(false)
+    }
+  }, [messageApi])
+
+  useEffect(() => {
+    fetchFieldConfigs()
+  }, [fetchFieldConfigs])
+
+  const handleCreateField = useCallback(async () => {
+    try {
+      const values = await fieldForm.validateFields()
+      const payload: FieldConfigCreate = {
+        key: values.key,
+        label: values.label,
+        group: values.group,
+        type: values.type || 'text',
+        width: values.width,
+        editable: values.editable ?? true,
+        required: values.required ?? false,
+        fixed: values.fixed ?? false,
+        options: values.options?.split(',').map((item) => item.trim()).filter(Boolean),
+        order_index: values.order_index,
+        description: values.description,
+      }
+      await createFieldConfig(payload)
+      messageApi.success('自定义字段已新增')
+      setFieldModalOpen(false)
+      fieldForm.resetFields()
+      fetchFieldConfigs()
+    } catch (error: any) {
+      if (error?.errorFields) {
+        return
+      }
+      console.error('Create field failed', error)
+      messageApi.error(error?.response?.data?.detail ?? '新增字段失败，请稍后再试')
+    }
+  }, [fieldForm, fetchFieldConfigs, messageApi])
+
+  const handleExportFields = useCallback(async () => {
+    try {
+      setExportingFields(true)
+      const blob = await exportFieldConfigs()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `field-config-${dayjs().format('YYYYMMDD-HHmmss')}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      messageApi.success('字段配置已导出')
+    } catch (error) {
+      console.error('Export field configs failed', error)
+      messageApi.error('导出失败，请稍后再试')
+    } finally {
+      setExportingFields(false)
+    }
+  }, [messageApi])
+
+  const fieldsTabContent = (
     <Space direction="vertical" size="large" className="w-full">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -454,14 +572,16 @@ const fieldsTabContent = (
           <Text type="secondary">字段需与数据库模型保持一致，修改后请同步数据库与 Excel 模板。</Text>
         </div>
         <Space size={12} wrap>
-          <Button type="default">导出字段配置</Button>
-          <Button type="primary" ghost>
+          <Button type="default" onClick={handleExportFields} loading={exportingFields}>
+            导出字段配置
+          </Button>
+          <Button type="primary" ghost onClick={() => setFieldModalOpen(true)}>
             新增自定义字段
           </Button>
         </Space>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {groupedFieldConfigs.map((group) => (
+        {customGroupedFields.map((group) => (
           <Card
             key={group.key}
             className="rounded-2xl border border-white/60 bg-white/92 shadow-[0_16px_40px_rgba(37,99,235,0.08)]"
@@ -473,25 +593,39 @@ const fieldsTabContent = (
               <Tag color="blue">{group.fields.length} 项</Tag>
             </div>
             <Divider className="!my-3" />
-            <Space direction="vertical" size={10} className="w-full">
-              {group.fields.map((field) => (
-                <div
-                  key={field.key}
-                  className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-slate-700">{field.label}</span>
-                    <Space size={6} wrap>
-                      <Tag color="cyan">{getFieldTypeLabel(field.type)}</Tag>
-                      {field.editable ? <Tag color="geekblue">可编辑</Tag> : <Tag>只读</Tag>}
-                      {field.required ? <Tag color="red">必填</Tag> : null}
-                      {field.fixed ? <Tag color="purple">固定列</Tag> : null}
-                    </Space>
+            {fieldsLoading ? (
+              <div className="flex justify-center py-6">
+                <Spin />
+              </div>
+            ) : group.fields.length ? (
+              <Space direction="vertical" size={10} className="w-full">
+                {group.fields.map((field) => (
+                  <div
+                    key={field.key}
+                    className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-slate-700">{field.label}</span>
+                      <Space size={6} wrap>
+                        <Tag color="cyan">{getFieldTypeLabel(field.type)}</Tag>
+                        {field.editable ? <Tag color="geekblue">可编辑</Tag> : <Tag>只读</Tag>}
+                        {field.required ? <Tag color="red">必填</Tag> : null}
+                        {field.fixed ? <Tag color="purple">固定列</Tag> : null}
+                        {'is_custom' in field && field.is_custom ? <Tag color="green">自定义</Tag> : null}
+                      </Space>
+                    </div>
+                    <Text className="text-xs text-slate-500">字段编码：{field.key}</Text>
+                    {'description' in field && field.description ? (
+                      <Text className="block text-xs text-slate-400">{(field as any).description}</Text>
+                    ) : null}
                   </div>
-                  <Text className="text-xs text-slate-500">字段编码：{field.key}</Text>
-                </div>
-              ))}
-            </Space>
+                ))}
+              </Space>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+                当前分组暂无字段
+              </div>
+            )}
           </Card>
         ))}
       </div>
@@ -619,7 +753,7 @@ const fieldsTabContent = (
             <div>PDF 自动拆分：{ocrPreview.autoSplitPdf ? '开启' : '关闭'}</div>
             <div>提醒渠道：{(ocrPreview.notifyChannels ?? []).map((channel) => notificationChannelOptions.find((opt) => opt.value === channel)?.label ?? channel).join(' · ') || '未设置'}</div>
             <div>每日复核容量：{ocrPreview.reviewQueueDaily ?? 30} 份</div>
-            <div>强制复核字段：{(ocrPreview.doubleCheckFields ?? []).map((fieldKey) => fieldConfigs.find((item) => item.key === fieldKey)?.label ?? fieldKey).join(' · ') || '未设置'}</div>
+            <div>强制复核字段：{(ocrPreview.doubleCheckFields ?? []).map((fieldKey) => staticFieldConfigs.find((item) => item.key === fieldKey)?.label ?? fieldKey).join(' · ') || '未设置'}</div>
             <div>当前模型：{ocrModelOptions.find((opt) => opt.value === ocrPreview.selectedModel)?.label ?? '未选择'}</div>
             <div>导出模板：{excelTemplateOptions.find((opt) => opt.value === ocrPreview.excelTemplate)?.label ?? '默认模板'}</div>
           </Space>
@@ -628,11 +762,26 @@ const fieldsTabContent = (
     </Space>
   )
 
-  const tabItems = [
-    { key: 'workflow', label: '流程配置', children: workflowTabContent },
-    { key: 'fields', label: '字段配置', children: fieldsTabContent },
-    { key: 'ocr', label: 'OCR 设置', children: ocrTabContent },
-  ]
+  const tabItems = useMemo(
+    () => [
+      {
+        key: 'workflow',
+        label: '审批流程配置',
+        children: workflowTabContent,
+      },
+      {
+        key: 'fields',
+        label: '字段配置管理',
+        children: fieldsTabContent,
+      },
+      {
+        key: 'ocr',
+        label: 'OCR 引擎配置',
+        children: ocrTabContent,
+      },
+    ],
+    [workflowTabContent, fieldsTabContent, ocrTabContent],
+  )
 
   return (
     <>
@@ -678,6 +827,145 @@ const fieldsTabContent = (
         <Tabs activeKey={activeTab} onChange={handleTabChange} items={tabItems} animated destroyOnHidden={false} />
       </Card>
       </div>
+      <Modal
+        open={fieldModalOpen}
+        title="新增自定义字段"
+        okText="确认新增"
+        cancelText="取消"
+        onOk={handleCreateField}
+        onCancel={() => {
+          setFieldModalOpen(false)
+          fieldForm.resetFields()
+        }}
+      >
+        <Form<FieldFormValues>
+          form={fieldForm}
+          layout="vertical"
+          initialValues={{
+            group: 'other',
+            type: 'text',
+            editable: true,
+            required: false,
+            fixed: false,
+            order_index: 1000,
+          }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item<FieldFormValues>
+                name="key"
+                label="字段编码"
+                tooltip="仅允许字母开头，支持字母、数字和下划线"
+                rules={[
+                  { required: true, message: '请输入字段编码' },
+                  {
+                    pattern: /^[a-zA-Z][a-zA-Z0-9_]*$/, message: '字段编码需以字母开头，仅包含字母数字下划线',
+                  },
+                ]}
+              >
+                <Input placeholder="例如 teacher_specialty" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item<FieldFormValues>
+                name="label"
+                label="字段名称"
+                rules={[{ required: true, message: '请输入字段名称' }]}
+              >
+                <Input placeholder="例如 特长" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item<FieldFormValues>
+                name="group"
+                label="所属分组"
+                rules={[{ required: true, message: '请选择分组' }]}
+              >
+                <Select
+                  options={Object.entries(fieldGroups).map(([key, label]) => ({ value: key, label }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item<FieldFormValues> name="type" label="字段类型">
+                <Select
+                  options={[
+                    { value: 'text', label: '文本' },
+                    { value: 'number', label: '数字' },
+                    { value: 'date', label: '日期' },
+                    { value: 'select', label: '下拉选项' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item<FieldFormValues> name="width" label="列宽 (可选)" tooltip="用于表格显示的宽度">
+                <InputNumber min={80} max={400} className="w-full" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item<FieldFormValues> name="order_index" label="排序权重" tooltip="值越小越靠前">
+                <InputNumber min={1} max={2000} className="w-full" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item<FieldFormValues>
+                shouldUpdate={(prev, next) => prev.type !== next.type}
+                noStyle
+              >
+                {({ getFieldValue }) => (
+                  <Form.Item<FieldFormValues>
+                    name="options"
+                    label="下拉选项 (逗号分隔)"
+                    rules={
+                      getFieldValue('type') === 'select'
+                        ? [{ required: true, message: '下拉字段需设置选项' }]
+                        : undefined
+                    }
+                  >
+                    {getFieldValue('type') === 'select' ? (
+                      <Input placeholder="例如：小学部,初中部,高中部" />
+                    ) : (
+                      <Input disabled placeholder="仅当类型为下拉选项时填写" />
+                    )}
+                  </Form.Item>
+                )}
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item<FieldFormValues> name="editable" label="可编辑" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item<FieldFormValues> name="required" label="必填" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item<FieldFormValues> name="fixed" label="固定列" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item<FieldFormValues> name="description" label="字段说明">
+            <Input.TextArea rows={3} placeholder="用于说明字段用途或填报规范" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   )
 }

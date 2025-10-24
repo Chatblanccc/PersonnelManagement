@@ -1,5 +1,6 @@
-﻿import { useMemo, useState, useCallback, useRef } from 'react'
+﻿import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { Card, Space, Button, Input, Select, Dropdown, Divider } from 'antd'
+import { useSearchParams } from 'react-router-dom'
 import {
   DownloadOutlined,
   SearchOutlined,
@@ -38,8 +39,22 @@ const approvalStatusOptions = [
 
 const Ledger = () => {
   const { filters, setFilters, pagination, setPagination } = useContractsStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [searchText, setSearchText] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const filterPreset = searchParams.get('filter')
+    if (filterPreset === 'expiringSoon' && !filters.expiring_within_days) {
+      const mergedFilters = {
+        ...filters,
+        expiring_within_days: 30,
+        approval_status: filters.approval_status ?? 'approved',
+      }
+      setFilters(mergedFilters)
+      setPagination({ page: 1 })
+    }
+  }, [filters, searchParams, setFilters, setPagination])
 
   const queryParams = useMemo<ContractQuery>(
     () => ({
@@ -58,7 +73,7 @@ const Ledger = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleSearch = (value: string) => {
-    setFilters({ ...filters, search: value || undefined })
+    setFilters({ ...filters, search: value || undefined, expiring_within_days: undefined })
     setPagination({ page: 1 })
   }
 
@@ -165,6 +180,36 @@ const Ledger = () => {
               setPagination({ page: 1 })
               setSelectedIds([])
             }}
+          />
+          <Select
+            placeholder="到期预警"
+            style={{ width: 180 }}
+            value={filters.expiring_within_days}
+            options={[
+              { label: '全部期限', value: undefined },
+              { label: '30 天内到期', value: 30 },
+              { label: '60 天内到期', value: 60 },
+              { label: '90 天内到期', value: 90 },
+            ]}
+            onChange={(value) => {
+              setFilters({ ...filters, expiring_within_days: value ?? undefined })
+              setPagination({ page: 1 })
+              setSelectedIds([])
+              if (!value) {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev)
+                  next.delete('filter')
+                  return next
+                }, { replace: true })
+              } else if (!searchParams.get('filter')) {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev)
+                  next.set('filter', 'expiringSoon')
+                  return next
+                }, { replace: true })
+              }
+            }}
+            allowClear
           />
               <Space size={12}>
                 <Button

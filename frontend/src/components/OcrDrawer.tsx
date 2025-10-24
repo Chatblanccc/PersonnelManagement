@@ -2,7 +2,7 @@ import { Drawer, Descriptions, Tag, Space, Button, Typography } from 'antd'
 import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import { useContractsStore } from '@/store/contractsStore'
 import { useCreateContract } from '@/hooks/useContracts'
-import { fieldConfigs } from '@/utils/fieldMapping'
+import { staticFieldConfigs } from '@/utils/fieldMapping'
 import { formatDate } from '@/utils/date'
 
 const { Title, Paragraph, Text } = Typography
@@ -36,7 +36,7 @@ const OcrDrawer = () => {
     const value = contract[key as keyof typeof contract]
     if (!value) return '-'
     
-    const config = fieldConfigs.find(f => f.key === key)
+    const config = staticFieldConfigs.find((f) => f.key === key)
     if (config?.type === 'date') {
       return formatDate(value as string)
     }
@@ -126,7 +126,7 @@ const OcrDrawer = () => {
                   <Text strong>以下字段识别置信度较低，建议人工核对：</Text>
                   <div className="mt-2">
                     {lowConfidenceFields.map(field => {
-                      const config = fieldConfigs.find(f => f.key === field)
+                      const config = staticFieldConfigs.find((f) => f.key === field)
                       return (
                         <Tag key={field} color="warning" className="mb-1">
                           {config?.label || field}
@@ -146,7 +146,7 @@ const OcrDrawer = () => {
             识别结果
           </Title>
           <Descriptions bordered column={1} size="small" className="overflow-hidden rounded-2xl">
-            {fieldConfigs.map(config => {
+            {staticFieldConfigs.map((config) => {
               const value = getFieldValue(config.key)
               const conf = confidence[config.key]
               const isLowConfidence = conf && conf < 0.8

@@ -76,6 +76,7 @@ class ContractService:
         job_status: Optional[str] = None,
         search: Optional[str] = None,
         approval_status: Optional[str] = "approved",
+        expiring_within_days: Optional[int] = None,
     ) -> tuple[List[Contract], int]:
         """
         获取合同列表（分页）
@@ -105,6 +106,18 @@ class ContractService:
                 )
             )
         
+        if expiring_within_days is not None:
+            today = datetime.now().date()
+            future_date = today + timedelta(days=expiring_within_days)
+            active_statuses = ['在职', '试用期']
+
+            query = query.filter(
+                Contract.contract_end.isnot(None),
+                Contract.contract_end >= today,
+                Contract.contract_end <= future_date,
+                Contract.job_status.in_(active_statuses),
+            )
+
         # 计算总数
         total = query.count()
         

@@ -36,6 +36,13 @@ from .auth import (
     RoleListResponse,
 )
 from .operation_log import OperationLogQuery, OperationLogResponse, OperationLogItem
+from .workflow import WorkflowConfigResponse, WorkflowConfigUpdate
+from .field_config import (
+    FieldConfigResponse,
+    FieldConfigCreate,
+    FieldConfigUpdate,
+    FieldConfigCollection,
+)
 
 __all__ = [
     "ContractCreate",
@@ -65,5 +72,11 @@ __all__ = [
     "OperationLogQuery",
     "OperationLogResponse",
     "OperationLogItem",
+    "WorkflowConfigResponse",
+    "WorkflowConfigUpdate",
+    "FieldConfigResponse",
+    "FieldConfigCreate",
+    "FieldConfigUpdate",
+    "FieldConfigCollection",
 ]
 

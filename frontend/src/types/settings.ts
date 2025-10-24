@@ -49,3 +49,41 @@ export interface WorkflowConfigUpdate {
   stages: WorkflowStageUpdate[]
 }
 
+export type FieldType = 'text' | 'date' | 'number' | 'select'
+
+export interface FieldConfigResponse {
+  id: string
+  key: string
+  label: string
+  group: string
+  type: FieldType
+  width?: number
+  editable: boolean
+  required: boolean
+  fixed: boolean
+  options?: string[]
+  description?: string
+  is_custom: boolean
+  created_at: string
+  updated_at: string
+  order_index?: number
+}
+
+export interface FieldConfigCollection {
+  items: FieldConfigResponse[]
+}
+
+export interface FieldConfigCreate {
+  key: string
+  label: string
+  group: string
+  type?: FieldType
+  width?: number
+  editable?: boolean
+  required?: boolean
+  fixed?: boolean
+  options?: string[]
+  description?: string
+  order_index?: number
+}
+

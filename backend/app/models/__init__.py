@@ -9,6 +9,7 @@ from app.models.user import User, Role, Permission
 from app.models.workflow import WorkflowStage
 from app.models.notification import Notification, NotificationType
 from app.models.announcement import Announcement
+from app.models.contract_field_config import ContractFieldConfig
 
 __all__ = [
     "Contract",
@@ -26,5 +27,6 @@ __all__ = [
     "Notification",
     "NotificationType",
     "Announcement",
+    "ContractFieldConfig",
 ]
 
