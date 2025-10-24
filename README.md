@@ -74,6 +74,15 @@ npm install
 npm run dev
 ```
 
+### 本地启用代理（解决远程 CORS）
+
+1. 编辑 `docker/env/frontend.local.env`，根据需要切换：
+   - `VITE_DEV_USE_PROXY=true` 表示启用代理；
+   - `VITE_DEV_PROXY_TARGET=http://192.168.110.252:8000` 指向远程服务器；
+   - `VITE_DEV_PROXY_ORIGIN=http://localhost:5173` 与本地访问地址一致。
+2. 前端代码中的请求基地址保持 `/api`，由 Vite 代理统一转发。
+3. 如需临时关闭代理，只需改回 `VITE_DEV_USE_PROXY=false` 并重启开发服务器。
+
 ### 后端启动
 
 ```bash
