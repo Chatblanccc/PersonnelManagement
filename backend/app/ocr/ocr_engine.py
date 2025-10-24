@@ -2,26 +2,54 @@ from paddleocr import PaddleOCR
 from PIL import Image
 import pdf2image
 import os
+import logging
 from typing import List, Tuple
 from app.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 class OCREngine:
     def __init__(self):
         """初始化 PaddleOCR"""
-        device = "gpu:0" if settings.OCR_USE_GPU else "cpu"
-        self.ocr = PaddleOCR(
-            use_angle_cls=True,
-            lang='ch',
-            device=device,
-        )
+        self.device = "gpu:0" if settings.OCR_USE_GPU else "cpu"
+        self._ocr = None
+        self._init_error: Exception | None = None
+
+    def _ensure_ocr_initialized(self) -> bool:
+        """懒加载 OCR 实例，失败时记录错误避免阻断主进程"""
+        if self._ocr is not None:
+            return True
+
+        if self._init_error is not None:
+            logger.warning("PaddleOCR 初始化失败，OCR 功能不可用: %s", self._init_error)
+            return False
+
+        try:
+            self._ocr = PaddleOCR(
+                use_angle_cls=True,
+                lang='ch',
+                device=self.device,
+                show_log=False,
+            )
+            logger.info("PaddleOCR 初始化成功，device=%s", self.device)
+            return True
+        except Exception as exc:
+            self._init_error = exc
+            logger.exception("PaddleOCR 初始化失败，已禁用 OCR 功能: %s", exc)
+            return False
     
     def process_image(self, image_path: str) -> List[Tuple[str, float]]:
         """
         处理单张图片
         返回：[(识别文本, 置信度), ...]
         """
+        if not self._ensure_ocr_initialized():
+            logger.error("PaddleOCR 未初始化成功，无法处理图片 %s", image_path)
+            return []
+
         try:
-            result = self.ocr.ocr(image_path, cls=True)
+            result = self._ocr.ocr(image_path, cls=True)
             
             if not result or not result[0]:
                 return []
@@ -42,6 +70,10 @@ class OCREngine:
         处理 PDF 文件
         将 PDF 转换为图片后进行 OCR
         """
+        if not self._ensure_ocr_initialized():
+            logger.error("PaddleOCR 未初始化成功，无法处理 PDF %s", pdf_path)
+            return []
+
         try:
             # 将 PDF 转换为图片
             images = pdf2image.convert_from_path(pdf_path)
