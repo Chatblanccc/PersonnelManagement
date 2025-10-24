@@ -12,6 +12,9 @@ class OCRService:
         返回：(字段字典, 置信度字典, 原始文本)
         """
         # 1. OCR 识别
+        if not getattr(ocr_engine, "enabled", True):
+            return {}, {}, "OCR 功能已禁用，未执行识别"
+
         text_lines = ocr_engine.process_file(file_path)
         
         if not text_lines:

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
     
     # OCR 配置
+    OCR_ENABLED: bool = False
     OCR_CONFIDENCE_THRESHOLD: float = 0.8
     OCR_USE_GPU: bool = False
     
