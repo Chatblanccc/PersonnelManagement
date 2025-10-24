@@ -205,7 +205,7 @@ const ContractDetailDrawer = ({ open, contract, onClose, lifecycleDetail, lifecy
                   description={
                     <div className="flex flex-wrap gap-2">
                       {lifecycleSummary.pendingReviewFields.map((field) => {
-                        const config = fieldConfigs.find((item) => item.key === field)
+                        const config = staticFieldConfigs.find((item) => item.key === field)
                         return (
                           <Tag key={field} color="warning">
                             {config?.label || field}
