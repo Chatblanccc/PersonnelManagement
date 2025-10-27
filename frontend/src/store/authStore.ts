@@ -9,6 +9,7 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   expiresAt: number | null
+  lastActivity: number | null
   user: AuthUser | null
   permissions: string[]
   isInitializing: boolean
@@ -19,11 +20,12 @@ interface AuthState {
   clearTokens: () => void
   setSession: (payload: MeResponse) => void
   setInitializing: (value: boolean) => void
+  updateActivity: (timestamp?: number) => void
 }
 
 type AuthPersistState = Pick<
   AuthState,
-  'accessToken' | 'refreshToken' | 'expiresAt' | 'user' | 'permissions'
+  'accessToken' | 'refreshToken' | 'expiresAt' | 'lastActivity' | 'user' | 'permissions'
 >
 
 const parseTokenExpiry = (token: string | null): number | null => {
@@ -43,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       expiresAt: null,
+      lastActivity: null,
       user: null,
       permissions: [],
       isInitializing: true,
@@ -66,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: token.access_token,
           refreshToken: token.refresh_token ?? null,
           expiresAt: accessTokenExpiry ?? fallbackExpiry,
+          lastActivity: Date.now(),
         })
       },
 
@@ -74,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: null,
           refreshToken: null,
           expiresAt: null,
+          lastActivity: null,
           user: null,
           permissions: [],
         })
@@ -87,6 +92,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setInitializing: (value: boolean) => set({ isInitializing: value }),
+
+      updateActivity: (timestamp) => {
+        set({ lastActivity: timestamp ?? Date.now() })
+      },
     }),
     {
       name: 'auth-storage',
@@ -95,6 +104,7 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         expiresAt: state.expiresAt,
+        lastActivity: state.lastActivity,
         user: state.user,
         permissions: state.permissions,
       }),
