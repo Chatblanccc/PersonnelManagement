@@ -18,15 +18,20 @@ import {
   type ChangePasswordData,
   type NotificationList,
 } from '../api/profile';
+import { useAuthStore } from '@/store/authStore';
 
 /**
  * 获取个人信息
  */
 export const useProfile = () => {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isInitializing = useAuthStore((state) => state.isInitializing);
+
   return useQuery<UserProfile>({
     queryKey: ['profile'],
     queryFn: getMyProfile,
     staleTime: 5 * 60 * 1000, // 5分钟
+    enabled: Boolean(accessToken) && !isInitializing,
   });
 };
 
@@ -89,10 +94,14 @@ export const useNotifications = (params: {
   limit?: number;
   unread_only?: boolean;
 }) => {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isInitializing = useAuthStore((state) => state.isInitializing);
+
   return useQuery<NotificationList>({
     queryKey: ['notifications', params],
     queryFn: () => getNotifications(params),
     refetchInterval: 30000, // 每30秒自动刷新
+    enabled: Boolean(accessToken) && !isInitializing,
   });
 };
 
@@ -100,10 +109,14 @@ export const useNotifications = (params: {
  * 获取未读通知数量
  */
 export const useUnreadCount = () => {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isInitializing = useAuthStore((state) => state.isInitializing);
+
   return useQuery<{ unread_count: number }>({
     queryKey: ['unread-count'],
     queryFn: getUnreadCount,
     refetchInterval: 15000, // 每15秒自动刷新
+    enabled: Boolean(accessToken) && !isInitializing,
   });
 };
 

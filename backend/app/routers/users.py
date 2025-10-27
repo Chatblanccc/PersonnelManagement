@@ -19,7 +19,7 @@ from app.utils.auth import require_permission
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_permission("settings.manage"))])
 
 
-@router.get("/", response_model=UserListResponse)
+@router.get("", response_model=UserListResponse)
 def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -36,7 +36,7 @@ def list_users(
     )
 
 
-@router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     try:
         user = UserService.create_user(
