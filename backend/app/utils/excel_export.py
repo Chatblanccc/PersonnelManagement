@@ -144,7 +144,7 @@ class ExcelExporter:
 
         # 添加提示信息
         ws.cell(row=3, column=1, value="提示：请按照表头填写信息，日期格式为 YYYY-MM-DD，教龄自动计算可留空。")
-        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(ExcelExporter.EXPORT_FIELDS))
+        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(export_fields))
         ws.cell(row=3, column=1).alignment = Alignment(horizontal="left")
 
         output = io.BytesIO()
