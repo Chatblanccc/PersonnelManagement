@@ -8,6 +8,7 @@
 - 🔒 **数据加密存储**：敏感信息（身份证、电话等）AES256 加密
 - ✏️ **在线编辑**：支持识别结果的人工修订
 - 📊 **数据导出**：支持筛选、搜索、导出 Excel
+- 🟡 **置信度联动**：实时可视化字段置信度，低置信度字段高亮提醒
 - 🎨 **现代化界面**：基于 TailwindCSS + shadcn/ui + Ant Design 5.0
 - 🔐 **权限管理**：JWT 鉴权 + RBAC 角色控制
 - 👤 **个人中心**：用户档案管理、密码修改、实时通知消息
@@ -65,6 +66,7 @@ PersonnelManagement/
 - Node.js 18+
 - Python 3.11+
 - PostgreSQL 15+
+- **Poppler** (PDF 处理工具，OCR 必需)
 
 ### 前端启动
 
@@ -84,6 +86,31 @@ npm run dev
 3. 如需临时关闭代理，只需改回 `VITE_DEV_USE_PROXY=false` 并重启开发服务器。
 
 ### 后端启动
+
+#### 1. 安装 Poppler（必需）
+
+**Windows 用户：**
+```powershell
+# 方式 1: 使用 Chocolatey（推荐）
+choco install poppler -y
+
+# 方式 2: 运行自动安装脚本
+.\setup_poppler.ps1
+
+# 方式 3: 手动下载
+# 访问 https://github.com/oschwartz10612/poppler-windows/releases
+# 下载并解压到 C:\Program Files\poppler\Library\bin
+# 添加到系统环境变量 PATH
+```
+
+验证安装：
+```powershell
+pdfinfo -v  # 应显示版本号
+```
+
+**详细安装指南请参考：`INSTALL_POPPLER.md` 或 `QUICK_FIX.md`**
+
+#### 2. 启动后端服务
 
 ```bash
 cd backend
@@ -105,7 +132,26 @@ CREATE DATABASE personnel_management;
 DATABASE_URL=postgresql://user:password@localhost:5432/personnel_management
 SECRET_KEY=your-secret-key
 ENCRYPTION_KEY=your-encryption-key
+FILE_ENCRYPTION_KEY=your-file-encryption-key-32-bytes-long
+CONTRACT_STORAGE_DIR=./storage/contracts
 ```
+
+## 测试与验证
+
+### 合同上传端到端检查
+
+1. 启动后端（FastAPI）与前端（Vite），确认 `.env` 中的数据库、加密、存储路径配置已生效。
+2. 登录前端后台，进入“合同台账 → 上传合同”页面，上传一份 PDF 或图片合同扫描件。
+3. 等待 OCR 完成，确认抽屉中：
+   - 低置信度字段以黄色标记显示；
+   - 可直接在抽屉内双击字段进行修订，保存后提示成功。
+4. 点击“确认保存”后，验证：
+   - `contracts` 表新增记录，`file_url` 为加密目录的相对路径，`teaching_years` 已按参加工作/入职日期自动计算；
+   - `contract_attachments`（如开启）与 `operation_logs` 表生成对应日志；
+   - `storage/contracts` 目录出现加密文件（内容不可直接查看，可通过后端解密接口验证）。
+5. 返回合同台账列表，确认低置信度字段高亮、高置信度字段恢复常规展示。
+6. 如需回归测试，可在前端删除测试合同记录，并同步清理 `storage/contracts` 目录下对应的加密文件（根据路径中的 UUID 匹配）。
+
 
 ## 系统功能
 

@@ -8,6 +8,14 @@ import type {
   ContractLifecycleSummary,
 } from '@/types/contract'
 
+export type UploadStage = 'idle' | 'uploading' | 'processing' | 'success' | 'error'
+
+export interface UploadStatus {
+  stage: UploadStage
+  percent: number
+  message?: string
+}
+
 interface ContractsState {
   contracts: Contract[]
   setContracts: (contracts: Contract[]) => void
@@ -33,8 +41,14 @@ interface ContractsState {
 
   ocrResult: OcrResult | null
   setOcrResult: (result: OcrResult | null) => void
+  lowConfidenceFields: string[]
+  setLowConfidenceFields: (fields: string[]) => void
   showOcrDrawer: boolean
   setShowOcrDrawer: (show: boolean) => void
+
+  uploadStatus: UploadStatus
+  setUploadStatus: (updater: Partial<UploadStatus> | ((prev: UploadStatus) => Partial<UploadStatus>)) => void
+  resetUploadStatus: () => void
 
   lifecycleDetail: ContractLifecycleDetail | null
   setLifecycleDetail: (detail: ContractLifecycleDetail | null) => void
@@ -66,8 +80,20 @@ export const useContractsStore = create<ContractsState>((set) => ({
 
   ocrResult: null,
   setOcrResult: (result) => set({ ocrResult: result }),
+  lowConfidenceFields: [],
+  setLowConfidenceFields: (fields) => set({ lowConfidenceFields: fields }),
   showOcrDrawer: false,
   setShowOcrDrawer: (show) => set({ showOcrDrawer: show }),
+
+  uploadStatus: { stage: 'idle', percent: 0 },
+  setUploadStatus: (updater) =>
+    set((state) => {
+      const next = typeof updater === 'function'
+        ? { ...state.uploadStatus, ...updater(state.uploadStatus) }
+        : { ...state.uploadStatus, ...updater }
+      return { uploadStatus: next }
+    }),
+  resetUploadStatus: () => set({ uploadStatus: { stage: 'idle', percent: 0, message: undefined } }),
 
   lifecycleDetail: null,
   setLifecycleDetail: (detail) => set({ lifecycleDetail: detail }),

@@ -1,12 +1,12 @@
-﻿from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, Request
+﻿from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-import os
-import shutil
-import math
-from datetime import datetime
 import io
+import math
+import os
+import tempfile
+from datetime import datetime
 
 from app.database import get_db
 from app.utils.auth import require_permission
@@ -19,6 +19,7 @@ from app.schemas.contract import (
     ContractLifecycleResponse,
 )
 from app.services.contract_service import ContractService
+from app.services.file_storage_service import file_storage_service
 from app.services.operation_log_service import OperationLogService
 from app.models.contract import Contract
 from app.ocr.ocr_service import ocr_service
@@ -28,9 +29,6 @@ from pydantic import ValidationError
 from app.config import settings
 
 router = APIRouter()
-
-# 确保上传目录存在
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/contracts/upload", response_model=OcrResult, dependencies=[Depends(require_permission("contracts.create"))])
@@ -49,54 +47,79 @@ async def upload_contract(
     if file_ext not in allowed_extensions:
         raise HTTPException(status_code=400, detail="不支持的文件类型")
     
-    # 验证文件大小
-    file.file.seek(0, 2)  # 移动到文件末尾
-    file_size = file.file.tell()
-    file.file.seek(0)  # 移回开始
-    
+    # 读取文件内容并验证大小
+    content = await file.read()
+    file_size = len(content)
+
     if file_size > settings.MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="文件大小超过限制")
-    
-    # 生成唯一文件名
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{timestamp}_{file.filename}"
-    file_path = os.path.join(settings.UPLOAD_DIR, filename)
-    
-    # 保存文件
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="文件内容为空")
+
+    temp_path: Optional[str] = None
+    storage_meta = None
+
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
-    
-    # OCR 识别
-    try:
-        fields, confidence, raw_text = ocr_service.process_contract_file(file_path)
-        
-        # 添加文件路径
-        fields['file_url'] = file_path
-        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+            tmp_file.write(content)
+            temp_path = tmp_file.name
+
+        fields, confidence, raw_text, low_confidence_fields = ocr_service.process_contract_file(temp_path)
+
+        try:
+            storage_meta = file_storage_service.save_encrypted(io.BytesIO(content), file.filename)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"合同文件存储失败: {exc}")
+
+        fields['file_url'] = storage_meta.relative_path
+
         result = OcrResult(
             contract=fields,
             confidence=confidence,
-            raw_text=raw_text
+            raw_text=raw_text,
+            low_confidence_fields=low_confidence_fields,
         )
+
         OperationLogService.log(
             db=db,
             module="contracts",
             action="upload",
             operator=request.state.user if hasattr(request.state, "user") else None,
             summary=f"上传合同文件 {file.filename}",
-            detail=f"临时文件路径: {file_path}",
+            detail=f"已存储至加密目录: {storage_meta.relative_path}",
             request=request,
-            extra={"confidence": confidence},
+            extra={
+                "original_filename": file.filename,
+                "average_confidence": fields.get('ocr_confidence'),
+                "confidence": confidence,
+                "low_confidence_fields": low_confidence_fields,
+                "file_size": file_size,
+                "storage_path": storage_meta.relative_path,
+                "checksum": storage_meta.checksum,
+            },
         )
+
         return result
-    except Exception as e:
-        # 删除上传的文件
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=f"OCR 识别失败: {str(e)}")
+    except HTTPException:
+        if storage_meta:
+            try:
+                file_storage_service.delete(storage_meta.relative_path)
+            except Exception:
+                pass
+        raise
+    except Exception as exc:
+        if storage_meta:
+            try:
+                file_storage_service.delete(storage_meta.relative_path)
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"OCR 识别失败: {exc}")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 
 @router.get("/contracts/template", dependencies=[Depends(require_permission("contracts.read"))])

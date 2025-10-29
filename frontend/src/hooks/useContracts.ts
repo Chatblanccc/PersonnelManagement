@@ -1,5 +1,6 @@
 ﻿import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import * as contractsApi from '@/api/contracts'
 import type { ImportContractsResponse } from '@/api/contracts'
 import type {
@@ -170,18 +171,36 @@ export const useDownloadTemplate = () => {
 // 上传合同并触发 OCR
 export const useUploadContract = () => {
   const queryClient = useQueryClient()
-  const { setOcrResult, setShowOcrDrawer } = useContractsStore()
+  const { setOcrResult, setShowOcrDrawer, setLowConfidenceFields, setUploadStatus, resetUploadStatus } = useContractsStore()
 
   return useMutation({
-    mutationFn: (file: File) => contractsApi.uploadContract(file),
+    mutationFn: async (file: File) =>
+      contractsApi.uploadContract(file, {
+        onUploadProgress: (percent) => {
+          setUploadStatus({
+            stage: percent >= 100 ? 'processing' : 'uploading',
+            percent,
+            message: percent >= 100 ? '上传完成，正在进行 OCR 识别…' : `正在上传合同文件（${percent}%）`,
+          })
+        },
+      }),
+    onMutate: () => {
+      resetUploadStatus()
+      setUploadStatus({ stage: 'uploading', percent: 0, message: '正在上传合同文件…' })
+    },
     onSuccess: (result: OcrResult) => {
-      notifySuccess('上传成功，正在展示 OCR 结果')
+      notifySuccess('识别完成，正在展示 OCR 结果')
+      setUploadStatus({ stage: 'success', percent: 100, message: '识别完成，结果已生成' })
       setOcrResult(result)
+      setLowConfidenceFields(result.low_confidence_fields ?? [])
       setShowOcrDrawer(true)
       queryClient.invalidateQueries({ queryKey: ['contracts'] })
     },
-    onError: () => {
-      notifyError('上传失败，请重试')
+    onError: (error: AxiosError<{ detail?: string }>) => {
+      const detail = error.response?.data?.detail
+      const message = typeof detail === 'string' ? detail : '上传失败，请重试'
+      setUploadStatus({ stage: 'error', percent: 0, message })
+      notifyError(message)
     },
   })
 }

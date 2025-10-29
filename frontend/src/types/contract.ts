@@ -48,6 +48,7 @@ export interface Contract {
   remarks: string
   file_url: string
   ocr_confidence: number
+  low_confidence_fields?: string[]
   created_at: string
   updated_at: string
 }
@@ -120,6 +121,7 @@ export interface OcrResult {
   contract: Partial<Contract>
   confidence: Record<string, number>
   raw_text: string
+  low_confidence_fields?: string[]
 }
 
 // 字段置信度

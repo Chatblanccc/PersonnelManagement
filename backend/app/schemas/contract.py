@@ -190,6 +190,7 @@ class OcrResult(BaseModel):
     contract: dict
     confidence: dict[str, float]
     raw_text: str
+    low_confidence_fields: list[str] = Field(default_factory=list)
 
 
 class ContractTemplate(BaseModel):

@@ -1,4 +1,5 @@
 ﻿import apiClient from './client'
+import type { AxiosProgressEvent } from 'axios'
 import type {
   Contract,
   ContractQuery,
@@ -70,13 +71,28 @@ export const importContracts = async (file: File): Promise<ImportContractsRespon
   })
 }
 
-export const uploadContract = async (file: File): Promise<OcrResult> => {
+export interface UploadContractOptions {
+  onUploadProgress?: (percent: number, event: AxiosProgressEvent) => void
+  signal?: AbortSignal
+}
+
+export const uploadContract = async (file: File, options?: UploadContractOptions): Promise<OcrResult> => {
   const formData = new FormData()
   formData.append('file', file)
 
   return apiClient.post('/contracts/upload', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+    },
+    signal: options?.signal,
+    onUploadProgress: (event: AxiosProgressEvent) => {
+      if (!options?.onUploadProgress) {
+        return
+      }
+
+      const total = event.total ?? 0
+      const percent = total > 0 ? Math.min(100, Math.round((event.loaded / total) * 100)) : 0
+      options.onUploadProgress(percent, event)
     },
   })
 }

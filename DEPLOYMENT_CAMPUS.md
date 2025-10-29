@@ -44,6 +44,9 @@ sudo chown -R $USER:$USER /data/personnel-management
 - `backend.local.env`：数据库连接、JWT 密钥、PaddleOCR 相关设置。
 - `database.local.env`：PostgreSQL 管理员账号、密码等。
 - `frontend.local.env`：前端 API 地址等配置。
+- 关键新增后端配置：
+  - `FILE_ENCRYPTION_KEY`：32 字节长度的文件加密密钥，建议使用随机字符串（Base64 编码后再写入）。
+  - `CONTRACT_STORAGE_DIR`：合同原件的加密存储目录，需与宿主机挂载路径一致，例如 `./storage/contracts`。
 
 **务必不要将实际凭据提交到 Git。** 推荐做法：
 
@@ -109,7 +112,7 @@ docker compose -f docker-compose.local.yml up -d
    - 前端：`http://<服务器IP>:3000`
    - 后端 Swagger：`http://<服务器IP>:8000/docs`
 
-4. 验证合同上传、OCR、字段保存、操作日志查看等核心功能，确保配置正确。
+4. 验证合同上传、OCR、字段保存、操作日志记录等核心功能，并确认 `storage/contracts` 内生成的文件可成功写入且内容已加密（无法直接明文打开）。
 
 ## 8. 日常维护与更新
 

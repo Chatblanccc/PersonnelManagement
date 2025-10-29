@@ -104,9 +104,10 @@ const ContractTable = ({ data, loading, pagination, onSelectionChange }: Contrac
     config: typeof staticFieldConfigs[0]
   ) => {
     const editing = isEditing(record, config.key)
+    const lowConfidenceSet = new Set(record.low_confidence_fields ?? [])
     
     // 置信度低的字段高亮
-    const isLowConfidence = record.ocr_confidence < 0.8
+    const isLowConfidence = lowConfidenceSet.has(config.key) || (record.ocr_confidence < 0.8 && lowConfidenceSet.size === 0)
     const isExpiringSoon = (() => {
       if (config.key !== 'contract_end' || !record.contract_end) return false
       const endDate = dayjs(record.contract_end)

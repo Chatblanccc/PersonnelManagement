@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -13,15 +14,18 @@ class Settings(BaseSettings):
     
     # 加密配置
     ENCRYPTION_KEY: str = "your-encryption-key-32-bytes-lo"
+    FILE_ENCRYPTION_KEY: str = "your-file-encryption-key-32-bytes-long"
     
     # 文件上传配置
     UPLOAD_DIR: str = "./uploads"
+    CONTRACT_STORAGE_DIR: Path = Path("./storage/contracts")
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
     
     # OCR 配置
     OCR_ENABLED: bool = False
     OCR_CONFIDENCE_THRESHOLD: float = 0.8
     OCR_USE_GPU: bool = False
+    POPPLER_PATH: Optional[str] = None  # Poppler 可执行文件路径（可选）
     
     class Config:
         env_file = ".env"

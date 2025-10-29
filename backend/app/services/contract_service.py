@@ -1,7 +1,7 @@
 ﻿from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from typing import Optional, List, Tuple
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import math
 
 from app.models.contract import Contract
@@ -29,6 +29,8 @@ class ContractService:
         data_dict = contract_data.model_dump()
         if not data_dict.get('approval_status'):
             data_dict['approval_status'] = 'pending'
+
+        ContractService._ensure_teaching_years(data_dict)
 
         
         # 加密敏感字段
@@ -145,6 +147,12 @@ class ContractService:
         # 更新字段
         update_dict = update_data.model_dump(exclude_unset=True)
         
+        ContractService._ensure_teaching_years(
+            update_dict,
+            fallback_start=contract.start_work_date,
+            fallback_entry=contract.entry_date,
+        )
+
         # 加密敏感字段
         for field in SENSITIVE_FIELDS:
             if field in update_dict and update_dict[field]:
@@ -383,4 +391,54 @@ class ContractService:
                     setattr(contract, field, decrypt_field(value))
                 except:
                     pass  # 如果解密失败，保持原值
+
+    @classmethod
+    def _ensure_teaching_years(
+        cls,
+        data: dict,
+        fallback_start: Optional[date] = None,
+        fallback_entry: Optional[date] = None,
+    ) -> None:
+        if 'teaching_years' in data and data['teaching_years'] not in (None, 0):
+            return
+
+        if 'start_work_date' in data:
+            reference = data.get('start_work_date')
+        else:
+            reference = fallback_start
+
+        if not reference:
+            if 'entry_date' in data:
+                reference = data.get('entry_date')
+            else:
+                reference = fallback_entry
+
+        normalized = cls._normalize_date(reference)
+        if not normalized:
+            return
+
+        data['teaching_years'] = cls._calculate_years(normalized)
+
+    @staticmethod
+    def _normalize_date(value: Optional[date | datetime | str]) -> Optional[date]:
+        if value is None:
+            return None
+        if isinstance(value, date) and not isinstance(value, datetime):
+            return value
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, str):
+            try:
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _calculate_years(reference: date) -> int:
+        today = datetime.now().date()
+        years = today.year - reference.year
+        if (today.month, today.day) < (reference.month, reference.day):
+            years -= 1
+        return max(years, 0)
 
