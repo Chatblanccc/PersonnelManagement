@@ -162,7 +162,7 @@ class WorkflowService:
             db.add(db_stage)
             created = True
         if created:
-            db.flush()
+            db.commit()
 
     @staticmethod
     def _build_user_summary(user: User) -> SimpleUserSummary:
