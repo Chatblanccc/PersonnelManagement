@@ -99,15 +99,15 @@ const OcrDrawer = () => {
     handleClose()
   }
 
-  const renderValueDisplay = (configKey: string, value: unknown) => {
+  const renderValueDisplay = (configKey: string, value: unknown): string => {
     const config = staticFieldConfigs.find((item) => item.key === configKey)
-    if (!config) return value ?? '-'
+    if (!config) return String(value ?? '-')
 
     if (config.type === 'date') {
       return value ? formatDate(value as string) : '-'
     }
 
-    return value ?? '-'
+    return String(value ?? '-')
   }
 
   const renderEditor = (configKey: string, value: unknown) => {
@@ -313,24 +313,24 @@ const OcrDrawer = () => {
                   }
                   className={isLowConfidence ? 'low-confidence' : undefined}
                 >
-                  {editingField === config.key
-                    ? renderEditor(config.key, value)
-                    : (
-                        <div
-                          className={`flex items-center justify-between gap-3 ${isLowConfidence ? 'text-amber-700' : ''}`}
-                          onDoubleClick={() => setEditingField(config.key)}
-                        >
-                          <span>{renderValueDisplay(config.key, value)}</span>
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => setEditingField(config.key)}
-                          >
-                            编辑
-                          </Button>
-                        </div>
-                      )}
+                  {editingField === config.key ? (
+                    renderEditor(config.key, value)
+                  ) : (
+                    <div
+                      className={`flex items-center justify-between gap-3 ${isLowConfidence ? 'text-amber-700' : ''}`}
+                      onDoubleClick={() => setEditingField(config.key)}
+                    >
+                      <span>{renderValueDisplay(config.key, value)}</span>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => setEditingField(config.key)}
+                      >
+                        编辑
+                      </Button>
+                    </div>
+                  )}
                 </Descriptions.Item>
               )
             })}

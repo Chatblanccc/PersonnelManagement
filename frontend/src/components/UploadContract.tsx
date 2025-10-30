@@ -20,13 +20,6 @@ const UploadContract = () => {
       ? 'success'
       : 'active'
 
-  const helperMessage = useMemo(() => {
-    if (uploadStatus.stage === 'idle' || !uploadStatus.message) {
-      return '上传后将自动进行 OCR 识别并生成字段'
-    }
-    return uploadStatus.message
-  }, [uploadStatus])
-
   const formattedSize = useMemo(() => {
     if (!currentFile) return ''
     const sizeInMb = currentFile.size / 1024 / 1024
