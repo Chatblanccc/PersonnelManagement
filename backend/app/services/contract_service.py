@@ -1,8 +1,10 @@
 ﻿from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, Tuple
 from datetime import date, datetime, timedelta, timezone
 import math
+import re
 
 from app.models.contract import Contract
 from app.models.contract_attachment import ContractAttachment
@@ -32,6 +34,12 @@ class ContractService:
 
         ContractService._ensure_teaching_years(data_dict)
 
+        # 检查员工工号是否已存在
+        teacher_code = data_dict.get('teacher_code')
+        if teacher_code:
+            existing_contract = db.query(Contract).filter(Contract.teacher_code == teacher_code).first()
+            if existing_contract:
+                raise ValueError(f"员工工号 {teacher_code} 已存在，请检查是否重复录入")
         
         # 加密敏感字段
         for field in SENSITIVE_FIELDS:
@@ -152,6 +160,16 @@ class ContractService:
             fallback_start=contract.start_work_date,
             fallback_entry=contract.entry_date,
         )
+
+        # 检查员工工号是否与其他合同重复（排除当前合同）
+        teacher_code = update_dict.get('teacher_code')
+        if teacher_code and teacher_code != contract.teacher_code:
+            existing_contract = db.query(Contract).filter(
+                Contract.teacher_code == teacher_code,
+                Contract.id != contract_id
+            ).first()
+            if existing_contract:
+                raise ValueError(f"员工工号 {teacher_code} 已被其他合同使用，请检查是否重复")
 
         # 加密敏感字段
         for field in SENSITIVE_FIELDS:

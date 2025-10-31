@@ -125,10 +125,10 @@ def get_user_permissions(user: User) -> List[str]:
     return sorted(permissions)
 
 
-def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
+def authenticate_user(db: Session, username: str, password: str) -> User:
     user = db.query(User).filter(User.username == username).first()
     if not user:
-        return None
+        raise HTTPException(status_code=401, detail="该账号未注册，请联系管理员")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="账号已被禁用")
     try:
@@ -136,7 +136,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not password_valid:
-        return None
+        raise HTTPException(status_code=401, detail="密码错误，请重新输入")
     return user
 
 

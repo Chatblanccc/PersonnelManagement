@@ -32,7 +32,9 @@ const LoginPage = () => {
       navigate(redirectPath, { replace: true })
     } catch (error: any) {
       console.error('登录失败', error)
-      notifyError(error?.response?.data?.detail ?? '登录失败，请检查账号或密码')
+      // 从错误响应中获取详细的错误信息
+      const errorMessage = error?.response?.data?.detail || error?.message || '登录失败，请检查账号或密码'
+      notifyError(errorMessage)
     } finally {
       setLoading(false)
       setInitializing(false)

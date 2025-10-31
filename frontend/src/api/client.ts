@@ -39,7 +39,16 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as (typeof error.config) & { _retry?: boolean }
 
-    if (error.response?.status === 401 && originalRequest) {
+    // 登录接口的401错误不应该走token刷新逻辑，直接显示错误
+    const isLoginRequest = originalRequest?.url?.includes('/auth/login')
+    // 合同创建接口的错误由业务层处理，不在拦截器中显示
+    // 匹配 POST /contracts 但不包括 /contracts/upload, /contracts/import 等
+    const requestUrl = originalRequest?.url?.split('?')[0] || '' // 排除查询参数
+    const isCreateContractRequest = 
+      originalRequest?.method?.toLowerCase() === 'post' && 
+      requestUrl.endsWith('/contracts') // 精确匹配以 /contracts 结尾的路径
+    
+    if (error.response?.status === 401 && originalRequest && !isLoginRequest) {
       if (originalRequest._retry) {
         return Promise.reject(error)
       }
@@ -84,6 +93,16 @@ apiClient.interceptors.response.use(
 
     if (error.response) {
       const { status, data } = error.response
+
+      // 登录接口的错误由登录页面自己处理，不在拦截器中显示
+      if (isLoginRequest && status === 401) {
+        return Promise.reject(error)
+      }
+
+      // 合同创建接口的错误由业务层处理，不在拦截器中显示（400错误通常包含业务逻辑错误信息）
+      if (isCreateContractRequest) {
+        return Promise.reject(error)
+      }
 
       switch (status) {
         case 403:

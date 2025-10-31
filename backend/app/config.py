@@ -26,10 +26,14 @@ class Settings(BaseSettings):
     OCR_CONFIDENCE_THRESHOLD: float = 0.8
     OCR_USE_GPU: bool = False
     POPPLER_PATH: Optional[str] = None  # Poppler 可执行文件路径（可选）
+    OCR_MODEL_DIR: Optional[str] = None  # PaddleOCR 模型存储目录（可选，默认 ~/.paddleocr/）
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = True
+        # 允许从环境变量读取配置（Docker 中通过 env_file 注入）
+        # pydantic_settings 会自动从环境变量读取，优先级高于默认值
 
 settings = Settings()
 

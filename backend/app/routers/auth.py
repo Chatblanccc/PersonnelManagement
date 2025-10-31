@@ -28,9 +28,8 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)) -> Token:
     UserService.ensure_default_permissions(db)
 
+    # authenticate_user 会在认证失败时直接抛出 HTTPException
     user = authenticate_user(db, payload.username, payload.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="用户名或密码错误")
 
     permissions = get_user_permissions(user)
     roles = [role.name for role in user.roles]

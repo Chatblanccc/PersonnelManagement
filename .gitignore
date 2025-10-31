@@ -43,6 +43,14 @@ logs/
 # OCR temp files
 backend/ocr_temp/
 
+# PaddleOCR models (too large for git)
+.paddleocr/
+**/.paddleocr/
+.paddlex/
+**/.paddlex/
+models/paddleocr/
+models/paddlex/
+
 # Encrypted files
 backend/encrypted_files/
 

@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 from app.config import settings
 
@@ -27,6 +28,8 @@ class BaseOCREngine:
 
 class PaddleOCREngine(BaseOCREngine):
     """基于 PaddleOCR 的引擎实现"""
+    
+    enabled = True  # 标记为启用状态
 
     def __init__(self):
         # 为避免导入 paddleocr 失败阻塞应用，这里延迟导入
@@ -38,6 +41,56 @@ class PaddleOCREngine(BaseOCREngine):
         self.device = "gpu:0" if settings.OCR_USE_GPU else "cpu"
         self._ocr = None
         self._init_error: Exception | None = None
+        
+        # 设置模型目录，避免每次下载
+        self._setup_model_dir()
+    
+    def _setup_model_dir(self):
+        """设置 PaddleOCR 模型目录，避免重复下载"""
+        # PaddleOCR 3.0 使用 PaddleX，模型保存在 ~/.paddlex 目录
+        # 需要设置 PADDLEX_HOME 环境变量
+
+        candidate_dirs: List[Path] = []
+
+        if settings.OCR_MODEL_DIR:
+            candidate_dirs.append(Path(settings.OCR_MODEL_DIR))
+        else:
+            # 优先使用容器内的 /app/.paddlex（我们已经将其映射到宿主机 models/paddlex）
+            candidate_dirs.append(Path("/app/.paddlex"))
+
+            # 其次尝试 /data/paddlex（部分部署会把数据挂载到 /data）
+            candidate_dirs.append(Path("/data/paddlex"))
+
+            # 最后退回到项目根目录下的 .paddlex
+            project_root = Path(__file__).parent.parent.parent
+            candidate_dirs.append(project_root / ".paddlex")
+
+        model_dir: Optional[Path] = None
+
+        for path in candidate_dirs:
+            try:
+                path.mkdir(parents=True, exist_ok=True)
+                if os.access(path, os.W_OK):
+                    model_dir = path
+                    logger.info("[OCR] 选用模型目录: %s", model_dir)
+                    break
+                logger.warning("[OCR] 模型目录不可写，跳过: %s", path)
+            except PermissionError:
+                logger.warning("[OCR] 无法创建模型目录（权限不足），跳过: %s", path)
+            except OSError as exc:
+                logger.warning("[OCR] 创建模型目录失败 %s: %s", path, exc)
+
+        if model_dir is None:
+            raise RuntimeError("无法创建 PaddleOCR 模型目录，请检查目录权限或配置 OCR_MODEL_DIR")
+
+        model_dir_str = str(model_dir.absolute())
+
+        # PaddleOCR 3.0 使用 PaddleX，需要设置 PADDLEX_HOME
+        # 兼容旧版本，也设置 PADDLEOCR_HOME
+        os.environ["PADDLEX_HOME"] = model_dir_str
+        os.environ["PADDLEOCR_HOME"] = model_dir_str
+        logger.info("[OCR] 已设置 PADDLEX_HOME=%s", model_dir_str)
+        logger.info("[OCR] 已设置 PADDLEOCR_HOME=%s", model_dir_str)
 
     def _ensure_ocr_initialized(self) -> bool:
         logger.info("[OCR] 检查 PaddleOCR 初始化状态...")
@@ -52,22 +105,44 @@ class PaddleOCREngine(BaseOCREngine):
 
         logger.info("[OCR] 开始初始化 PaddleOCR (device=%s)...", self.device)
         try:
+            # 获取模型目录路径
+            model_dir = os.environ.get("PADDLEOCR_HOME", None)
+            ocr_kwargs = {
+                "lang": "ch",
+                "device": self.device,
+            }
+            
+            # 如果配置了模型目录，指定模型路径（避免重复下载）
+            if model_dir:
+                det_model_dir = os.path.join(model_dir, "det")
+                rec_model_dir = os.path.join(model_dir, "rec")
+                cls_model_dir = os.path.join(model_dir, "cls")
+                
+                # 检查模型目录是否存在，如果存在则使用（首次下载后会自动创建）
+                if os.path.exists(det_model_dir):
+                    ocr_kwargs["det_model_dir"] = det_model_dir
+                    logger.info("[OCR] 使用已存在的检测模型目录: %s", det_model_dir)
+                if os.path.exists(rec_model_dir):
+                    ocr_kwargs["rec_model_dir"] = rec_model_dir
+                    logger.info("[OCR] 使用已存在的识别模型目录: %s", rec_model_dir)
+                if os.path.exists(cls_model_dir):
+                    ocr_kwargs["cls_model_dir"] = cls_model_dir
+                    logger.info("[OCR] 使用已存在的分类模型目录: %s", cls_model_dir)
+            
             # 新版 PaddleOCR 使用 use_textline_orientation 替代 use_angle_cls
             try:
-                self._ocr = self.PaddleOCR(
-                    use_textline_orientation=True,
-                    lang="ch",
-                    device=self.device,
-                )
+                ocr_kwargs["use_textline_orientation"] = True
+                logger.info("[OCR] 尝试使用新版 API (use_textline_orientation)")
+                self._ocr = self.PaddleOCR(**ocr_kwargs)
             except TypeError:
                 # 兼容旧版本
-                logger.warning("[OCR] 尝试使用旧版 API (use_angle_cls)")
-                self._ocr = self.PaddleOCR(
-                    use_angle_cls=True,
-                    lang="ch",
-                    device=self.device,
-                )
-            logger.info("[OCR] *** PaddleOCR 初始化成功! device=%s ***", self.device)
+                logger.warning("[OCR] 新版 API 不支持，尝试使用旧版 API (use_angle_cls)")
+                ocr_kwargs.pop("use_textline_orientation", None)
+                ocr_kwargs["use_angle_cls"] = True
+                self._ocr = self.PaddleOCR(**ocr_kwargs)
+            
+            logger.info("[OCR] *** PaddleOCR 初始化成功! device=%s, model_dir=%s ***", 
+                       self.device, model_dir or "默认")
             return True
         except Exception as exc:
             self._init_error = exc
@@ -266,6 +341,8 @@ class DummyOCREngine(BaseOCREngine):
 def create_ocr_engine() -> BaseOCREngine:
     logger.info("=== 开始创建 OCR 引擎 ===")
     logger.info("[CONFIG] OCR_ENABLED = %s", settings.OCR_ENABLED)
+    logger.info("[CONFIG] OCR_USE_GPU = %s", settings.OCR_USE_GPU)
+    logger.info("[CONFIG] OCR_MODEL_DIR = %s", settings.OCR_MODEL_DIR)
     
     if not settings.OCR_ENABLED:
         logger.warning("[CONFIG] OCR 功能已在配置中禁用，使用 DummyOCREngine")
@@ -275,7 +352,12 @@ def create_ocr_engine() -> BaseOCREngine:
         logger.info("[OCR] 尝试初始化 PaddleOCREngine...")
         engine = PaddleOCREngine()
         logger.info("[OCR] PaddleOCREngine 创建成功（实际初始化将在首次使用时进行）")
+        logger.info("[OCR] 引擎 enabled 属性: %s", getattr(engine, "enabled", "未定义"))
         return engine
+    except ImportError as exc:
+        logger.exception("[OCR] 无法导入 PaddleOCR 库，请确保已安装: pip install paddleocr")
+        logger.warning("[OCR] 降级为 DummyOCREngine")
+        return DummyOCREngine()
     except Exception as exc:
         logger.exception("[OCR] 初始化 PaddleOCR 引擎失败，降级为 DummyOCREngine: %s", exc)
         return DummyOCREngine()

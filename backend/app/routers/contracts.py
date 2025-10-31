@@ -5,6 +5,7 @@ from typing import Optional
 import io
 import math
 import os
+import re
 import tempfile
 from datetime import datetime
 
@@ -396,7 +397,22 @@ async def create_contract(
             extra={"approval_status": db_contract.approval_status},
         )
         return response
+    except ValueError as e:
+        # 业务逻辑错误（如员工工号重复），直接返回友好提示
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # 捕获数据库唯一约束错误
+        error_str = str(e)
+        if "duplicate key value violates unique constraint" in error_str or "UniqueViolation" in error_str:
+            # 解析错误信息，提取字段名和值
+            if "teacher_code" in error_str or "ix_contracts_teacher_code" in error_str:
+                # 尝试提取工号
+                match = re.search(r'\(teacher_code\)=\(([^)]+)\)', error_str)
+                teacher_code = match.group(1) if match else "该工号"
+                raise HTTPException(status_code=400, detail=f"员工工号 {teacher_code} 已存在，请检查是否重复录入")
+            else:
+                raise HTTPException(status_code=400, detail="数据已存在，请检查是否有重复字段")
+        # 其他错误返回通用提示
         raise HTTPException(status_code=400, detail=f"创建失败: {str(e)}")
 
 
@@ -410,27 +426,45 @@ async def update_contract(
     """
     更新合同信息
     """
-    contract = ContractService.update_contract(db, contract_id, contract_update)
-    if not contract:
-        raise HTTPException(status_code=404, detail="合同不存在")
-    
-    response = ContractResponse.model_validate(contract)
+    try:
+        contract = ContractService.update_contract(db, contract_id, contract_update)
+        if not contract:
+            raise HTTPException(status_code=404, detail="合同不存在")
+        
+        response = ContractResponse.model_validate(contract)
 
-    OperationLogService.log(
-        db=db,
-        module="contracts",
-        action="update",
-        operator=request.state.user if hasattr(request.state, "user") else None,
-        summary=f"更新合同 {contract.name} ({contract.teacher_code})",
-        detail=f"合同ID: {contract_id}",
-        request=request,
-        target_type="contract",
-        target_id=contract_id,
-        target_name=contract.name,
-        extra=contract_update.model_dump(exclude_unset=True),
-    )
+        OperationLogService.log(
+            db=db,
+            module="contracts",
+            action="update",
+            operator=request.state.user if hasattr(request.state, "user") else None,
+            summary=f"更新合同 {contract.name} ({contract.teacher_code})",
+            detail=f"合同ID: {contract_id}",
+            request=request,
+            target_type="contract",
+            target_id=contract_id,
+            target_name=contract.name,
+            extra=contract_update.model_dump(exclude_unset=True),
+        )
 
-    return response
+        return response
+    except ValueError as e:
+        # 业务逻辑错误（如员工工号重复），直接返回友好提示
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # 捕获数据库唯一约束错误
+        error_str = str(e)
+        if "duplicate key value violates unique constraint" in error_str or "UniqueViolation" in error_str:
+            # 解析错误信息，提取字段名和值
+            if "teacher_code" in error_str or "ix_contracts_teacher_code" in error_str:
+                # 尝试提取工号
+                match = re.search(r'\(teacher_code\)=\(([^)]+)\)', error_str)
+                teacher_code = match.group(1) if match else "该工号"
+                raise HTTPException(status_code=400, detail=f"员工工号 {teacher_code} 已被其他合同使用，请检查是否重复")
+            else:
+                raise HTTPException(status_code=400, detail="数据已存在，请检查是否有重复字段")
+        # 其他错误返回通用提示
+        raise HTTPException(status_code=400, detail=f"更新失败: {str(e)}")
 
 
 @router.delete("/contracts/{contract_id}", dependencies=[Depends(require_permission("contracts.delete"))])

@@ -220,8 +220,10 @@ export const useCreateContract = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
 
-    onError: () => {
-      notifyError('合同保存失败，请重试')
+    onError: (error: any) => {
+      // 从错误响应中提取友好的错误信息
+      const errorMessage = error?.response?.data?.detail || error?.message || '合同保存失败，请重试'
+      notifyError(errorMessage)
     },
   })
 }

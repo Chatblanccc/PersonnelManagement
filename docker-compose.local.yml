@@ -26,6 +26,7 @@ services:
     volumes:
       - ./storage/contracts:/data/contracts
       - ./logs/backend:/app/logs
+      - ./models/paddlex:/app/.paddlex  # PaddleOCR 3.0 模型目录映射（持久化到宿主机）
     ports:
       - "8000:8000"
     restart: unless-stopped
