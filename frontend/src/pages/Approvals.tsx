@@ -60,6 +60,8 @@ import type {
 import { formatDate } from "@/utils/date"
 import { useAuthStore } from "@/store/authStore"
 import { notifySuccess, notifyInfo, notifyWarning } from "@/utils/message"
+import ContractDetailDrawer from "@/components/ContractDetailDrawer"
+import { useContract, useContractLifecycle } from "@/hooks/useContracts"
 import type { AxiosError } from "axios"
 import type { SendReminderResponse } from "@/api/contracts"
 
@@ -132,6 +134,8 @@ const ApprovalDashboard = () => {
   const [actionTaskId, setActionTaskId] = useState<string | null>(null)
   const [progressDrawerVisible, setProgressDrawerVisible] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<GroupedTeacherApproval | null>(null)
+  const [contractDetailId, setContractDetailId] = useState<string | null>(null)
+  const [contractDetailVisible, setContractDetailVisible] = useState(false)
   
   // 获取当前用户标识
   const userIdentifier = currentUser?.full_name || currentUser?.username || ""
@@ -191,6 +195,27 @@ const ApprovalDashboard = () => {
     enabled: canFetch && Boolean(selectedTaskId),
     retry: false,
   })
+
+  const contractIdForDetail = contractDetailVisible && contractDetailId ? contractDetailId : ""
+  const contractDetailQuery = useContract(contractIdForDetail)
+  const { data: contractLifecycleData, isLoading: contractLifecycleLoading, refetch: refetchContractLifecycle } = useContractLifecycle(contractIdForDetail)
+
+  const openContractDetail = useCallback(
+    (contractId?: string | null) => {
+      if (contractId) {
+        setContractDetailId(contractId)
+        setContractDetailVisible(true)
+      } else {
+        notifyInfo("该审批任务未关联合同信息")
+      }
+    },
+    [],
+  )
+
+  const closeContractDetail = useCallback(() => {
+    setContractDetailVisible(false)
+    setContractDetailId(null)
+  }, [])
 
   // 分组逻辑：将同一教师的多个审批任务合并
   const groupedTeacherData = useMemo<GroupedTeacherApproval[]>(() => {
@@ -509,11 +534,7 @@ const ApprovalDashboard = () => {
     (actionKey: string, teacher: GroupedTeacherApproval, task?: ApprovalTask) => {
       switch (actionKey) {
         case "view-contract":
-          if (teacher.contract_id) {
-            window.open(`/contracts?contractId=${teacher.contract_id}`, "_blank")
-          } else {
-            notifyInfo("该审批任务未关联合同信息")
-          }
+          openContractDetail(teacher.contract_id)
           break
         case "view-progress":
           handleViewProgress(teacher)
@@ -537,7 +558,7 @@ const ApprovalDashboard = () => {
           break
       }
     },
-    [handleViewProgress, handleDelete, handleDeleteAllWorkflow, sendReminderMutation],
+    [handleViewProgress, handleDelete, handleDeleteAllWorkflow, sendReminderMutation, openContractDetail],
   )
 
   const approvePending = approveMutation.isPending
@@ -1120,9 +1141,7 @@ const ApprovalDashboard = () => {
                   <Button
                     type="primary"
                     icon={<ApartmentOutlined />}
-                    onClick={() => {
-                      window.open(`/contracts?contractId=${selectedTeacher.contract_id}`, "_blank")
-                    }}
+                    onClick={() => openContractDetail(selectedTeacher.contract_id)}
                   >
                     查看合同详情
                   </Button>
@@ -1154,6 +1173,17 @@ const ApprovalDashboard = () => {
         <Tabs activeKey={activeTabKey} onChange={(key) => setActiveTabKey(key as typeof activeTabKey)} items={tabItems} />
       </Card>
       {progressDrawer}
+      <ContractDetailDrawer
+        open={contractDetailVisible}
+        contract={contractDetailQuery.data ?? null}
+        lifecycleDetail={contractLifecycleData ?? null}
+        lifecycleSummary={contractLifecycleData?.summary ?? null}
+        lifecycleLoading={contractLifecycleLoading}
+        onClose={closeContractDetail}
+        onRefreshLifecycle={() => {
+          refetchContractLifecycle()
+        }}
+      />
     </Space>
   )
 }

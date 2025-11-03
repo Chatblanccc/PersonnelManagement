@@ -95,7 +95,10 @@ const OcrDrawer = () => {
 
   const handleSave = async () => {
     if (!ocrResult) return
-    await createMutation.mutateAsync(editableContract)
+    await createMutation.mutateAsync({
+      data: editableContract,
+      originalFilename: ocrResult.original_filename,
+    })
     handleClose()
   }
 

@@ -8,6 +8,7 @@ import type {
   ContractQuery,
   OcrResult,
   ContractLifecycleDetail,
+  CreateTimelineEventPayload,
 } from '@/types/contract'
 import { useContractsStore } from '@/store/contractsStore'
 import { notifySuccess, notifyError } from '@/utils/message'
@@ -210,7 +211,8 @@ export const useCreateContract = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: Partial<Contract>) => contractsApi.createContract(data),
+    mutationFn: ({ data, originalFilename }: { data: Partial<Contract>; originalFilename?: string }) =>
+      contractsApi.createContract(data, originalFilename),
     onSuccess: () => {
       notifySuccess('审批流程已发起，审批通过后合同将自动进入台账')
       queryClient.invalidateQueries({ queryKey: ['approval-tasks'] })
@@ -225,6 +227,77 @@ export const useCreateContract = () => {
       const errorMessage = error?.response?.data?.detail || error?.message || '合同保存失败，请重试'
       notifyError(errorMessage)
     },
+  })
+}
+
+export const useCreateTimelineEvent = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ contractId, data }: { contractId: string; data: CreateTimelineEventPayload }) =>
+      contractsApi.createContractTimelineEvent(contractId, data),
+    onSuccess: (_data, variables) => {
+      notifySuccess('生命周期事件已创建')
+      queryClient.invalidateQueries({ queryKey: ['contract-lifecycle', variables.contractId] })
+    },
+    onError: () => {
+      notifyError('新增生命周期事件失败，请稍后重试')
+    },
+  })
+}
+
+export const useDeleteTimelineEvent = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ contractId, eventId }: { contractId: string; eventId: string }) =>
+      contractsApi.deleteContractTimelineEvent(contractId, eventId),
+    onSuccess: (_data, variables) => {
+      notifySuccess('已删除生命周期事件')
+      queryClient.invalidateQueries({ queryKey: ['contract-lifecycle', variables.contractId] })
+    },
+    onError: () => {
+      notifyError('删除生命周期事件失败，请稍后重试')
+    },
+  })
+}
+
+export const useUploadContractAttachment = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ contractId, file, name }: { contractId: string; file: File; name?: string }) =>
+      contractsApi.uploadContractAttachment(contractId, file, { name }),
+    onSuccess: (_data, variables) => {
+      notifySuccess('附件上传成功')
+      queryClient.invalidateQueries({ queryKey: ['contract-lifecycle', variables.contractId] })
+    },
+    onError: () => {
+      notifyError('附件上传失败，请稍后重试')
+    },
+  })
+}
+
+export const useDeleteContractAttachment = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ contractId, attachmentId }: { contractId: string; attachmentId: string }) =>
+      contractsApi.deleteContractAttachment(contractId, attachmentId),
+    onSuccess: (_data, variables) => {
+      notifySuccess('附件已删除')
+      queryClient.invalidateQueries({ queryKey: ['contract-lifecycle', variables.contractId] })
+    },
+    onError: () => {
+      notifyError('删除附件失败，请稍后重试')
+    },
+  })
+}
+
+export const useDownloadContractAttachment = () => {
+  return useMutation({
+    mutationFn: ({ contractId, attachmentId }: { contractId: string; attachmentId: string }) =>
+      contractsApi.downloadContractAttachment(contractId, attachmentId),
   })
 }
 

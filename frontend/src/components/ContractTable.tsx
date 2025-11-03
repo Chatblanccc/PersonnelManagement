@@ -45,7 +45,7 @@ const ContractTable = ({ data, loading, pagination, onSelectionChange }: Contrac
   const [currentContract, setCurrentContract] = useState<Contract | null>(null)
   const [selectedLifecycleId, setSelectedLifecycleId] = useState<string>('')
   const { lifecycleDetail, setLifecycleDetail, lifecycleSummary } = useContractsStore()
-  const { isFetching: lifecycleFetching } = useContractLifecycle(selectedLifecycleId)
+  const { isFetching: lifecycleFetching, refetch: refetchLifecycle } = useContractLifecycle(selectedLifecycleId)
 
   useEffect(() => {
     setSelectedRowKeys([])
@@ -285,6 +285,9 @@ const ContractTable = ({ data, loading, pagination, onSelectionChange }: Contrac
         lifecycleDetail={lifecycleDetail}
         lifecycleSummary={lifecycleSummary}
         lifecycleLoading={lifecycleFetching}
+        onRefreshLifecycle={() => {
+          refetchLifecycle()
+        }}
       />
     </>
   )

@@ -66,11 +66,39 @@ export interface ContractTimelineEvent {
     | 'termination'
     | 'note'
     | 'other'
+  event_type?:
+    | 'uploaded'
+    | 'ocr_completed'
+    | 'reviewed'
+    | 'entry'
+    | 'regularized'
+    | 'renewal'
+    | 'change'
+    | 'termination'
+    | 'note'
+    | 'other'
   title: string
   description?: string
   operator?: string
   created_at: string
   extra_data?: Record<string, any>
+}
+
+export type ContractTimelineEventType = ContractTimelineEvent['type']
+
+export interface CreateTimelineEventPayload {
+  event_type: ContractTimelineEventType
+  title: string
+  description?: string
+  operator?: string
+  extra_data?: Record<string, unknown>
+}
+
+export interface UpdateTimelineEventPayload {
+  event_type?: ContractTimelineEventType
+  title?: string
+  description?: string
+  extra_data?: Record<string, unknown>
 }
 
 export interface ContractAttachment {
@@ -122,6 +150,7 @@ export interface OcrResult {
   confidence: Record<string, number>
   raw_text: string
   low_confidence_fields?: string[]
+  original_filename?: string
 }
 
 // 字段置信度

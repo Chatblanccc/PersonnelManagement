@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+﻿from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 from datetime import datetime
+import mimetypes
 
 from app.database import get_db
 from app.utils.auth import require_permission
@@ -18,6 +19,10 @@ from app.schemas.contract import (
     PaginatedResponse,
     OcrResult,
     ContractLifecycleResponse,
+    ContractTimelineEvent,
+    ContractTimelineEventCreate,
+    ContractTimelineEventUpdate,
+    ContractAttachmentItem,
 )
 from app.services.contract_service import ContractService
 from app.services.file_storage_service import file_storage_service
@@ -30,6 +35,15 @@ from pydantic import ValidationError
 from app.config import settings
 
 router = APIRouter()
+
+
+def _get_operator_name(request: Optional[Request]) -> Optional[str]:
+    if not request:
+        return None
+    user = getattr(request.state, "user", None)
+    if not user:
+        return None
+    return getattr(user, "full_name", None) or getattr(user, "username", None)
 
 
 @router.post("/contracts/upload", response_model=OcrResult, dependencies=[Depends(require_permission("contracts.create"))])
@@ -79,6 +93,7 @@ async def upload_contract(
             confidence=confidence,
             raw_text=raw_text,
             low_confidence_fields=low_confidence_fields,
+            original_filename=file.filename,
         )
 
         OperationLogService.log(
@@ -371,17 +386,260 @@ async def get_contract_lifecycle(
     return lifecycle
 
 
+@router.post(
+    "/contracts/{contract_id}/lifecycle/events",
+    response_model=ContractTimelineEvent,
+    dependencies=[Depends(require_permission("contracts.update"))],
+)
+async def create_contract_timeline_event(
+    contract_id: str,
+    payload: ContractTimelineEventCreate,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    operator_name = _get_operator_name(request)
+    event = ContractService.add_timeline_event(db, contract_id, payload, actor=operator_name)
+    if not event:
+        raise HTTPException(status_code=404, detail="合同不存在")
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="timeline_create",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"新增合同生命周期事件 {payload.title}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
+    return event
+
+
+@router.patch(
+    "/contracts/{contract_id}/lifecycle/events/{event_id}",
+    response_model=ContractTimelineEvent,
+    dependencies=[Depends(require_permission("contracts.update"))],
+)
+async def update_contract_timeline_event(
+    contract_id: str,
+    event_id: str,
+    payload: ContractTimelineEventUpdate,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    operator_name = _get_operator_name(request)
+    event = ContractService.update_timeline_event(db, contract_id, event_id, payload, actor=operator_name)
+    if not event:
+        raise HTTPException(status_code=404, detail="事件不存在或合同不存在")
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="timeline_update",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"更新合同生命周期事件 {event.title}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
+    return event
+
+
+@router.delete(
+    "/contracts/{contract_id}/lifecycle/events/{event_id}",
+    dependencies=[Depends(require_permission("contracts.update"))],
+)
+async def delete_contract_timeline_event(
+    contract_id: str,
+    event_id: str,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    operator_name = _get_operator_name(request)
+    success = ContractService.delete_timeline_event(db, contract_id, event_id, actor=operator_name)
+    if not success:
+        raise HTTPException(status_code=404, detail="事件不存在或合同不存在")
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="timeline_delete",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"删除合同生命周期事件 {event_id}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
+    return {"message": "删除成功"}
+
+
+@router.post(
+    "/contracts/{contract_id}/attachments",
+    response_model=ContractAttachmentItem,
+    dependencies=[Depends(require_permission("contracts.update"))],
+)
+async def upload_contract_attachment(
+    contract_id: str,
+    file: UploadFile = File(...),
+    name: Optional[str] = Form(None),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    if not file.filename and not name:
+        raise HTTPException(status_code=400, detail="附件缺少文件名")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="附件内容为空")
+
+    operator_name = _get_operator_name(request)
+    filename = name or file.filename or "附件"
+
+    try:
+        attachment = ContractService.add_attachment(
+            db,
+            contract_id,
+            filename=filename,
+            content=content,
+            uploader=operator_name,
+            content_type=file.content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="合同不存在")
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="attachment_upload",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"上传合同附件 {filename}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
+    return attachment
+
+
+@router.delete(
+    "/contracts/{contract_id}/attachments/{attachment_id}",
+    dependencies=[Depends(require_permission("contracts.update"))],
+)
+async def delete_contract_attachment(
+    contract_id: str,
+    attachment_id: str,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    operator_name = _get_operator_name(request)
+    success = ContractService.delete_attachment(db, contract_id, attachment_id, actor=operator_name)
+    if not success:
+        raise HTTPException(status_code=404, detail="附件不存在或合同不存在")
+
+    OperationLogService.log(
+        db=db,
+        module="contracts",
+        action="attachment_delete",
+        operator=request.state.user if hasattr(request.state, "user") else None,
+        summary=f"删除合同附件 {attachment_id}",
+        detail=f"合同ID: {contract_id}",
+        request=request,
+        target_type="contract",
+        target_id=contract_id,
+    )
+
+    return {"message": "删除成功"}
+
+
+@router.get(
+    "/contracts/{contract_id}/attachments/{attachment_id}/download",
+    dependencies=[Depends(require_permission("contracts.read"))],
+)
+async def download_contract_attachment(
+    contract_id: str,
+    attachment_id: str,
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = ContractService.get_attachment_content(db, contract_id, attachment_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="附件不存在或合同不存在")
+
+        attachment, data = result
+        
+        # 先记录日志
+        try:
+            OperationLogService.log(
+                db=db,
+                module="contracts",
+                action="attachment_download",
+                operator=request.state.user if hasattr(request.state, "user") else None,
+                summary=f"下载合同附件 {attachment.name}",
+                detail=f"合同ID: {contract_id}",
+                request=request,
+                target_type="contract",
+                target_id=contract_id,
+            )
+        except Exception as log_error:
+            # 日志记录失败不应该影响下载
+            print(f"日志记录失败: {log_error}")
+        
+        # 返回文件流
+        media_type = mimetypes.guess_type(attachment.name or "")[0] or "application/octet-stream"
+        
+        # 处理中文文件名编码
+        from urllib.parse import quote
+        encoded_filename = quote(attachment.name)
+        
+        # 使用 Response 而不是 StreamingResponse，因为数据已经在内存中
+        from fastapi.responses import Response
+        response = Response(
+            content=data,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            }
+        )
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"下载附件失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"下载附件失败: {str(e)}")
+
+
 @router.post("/contracts", response_model=ContractResponse, dependencies=[Depends(require_permission("contracts.create"))])
 async def create_contract(
     contract: ContractCreate,
+    original_filename: Optional[str] = None,
     request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
     创建合同记录
     """
+    operator_name = _get_operator_name(request)
     try:
-        db_contract = ContractService.create_contract(db, contract)
+        db_contract = ContractService.create_contract(
+            db, 
+            contract, 
+            operator=operator_name,
+            original_filename=original_filename
+        )
         response = ContractResponse.model_validate(db_contract)
         OperationLogService.log(
             db=db,
@@ -394,7 +652,7 @@ async def create_contract(
             target_type="contract",
             target_id=db_contract.id,
             target_name=db_contract.name,
-            extra={"approval_status": db_contract.approval_status},
+            extra={"approval_status": db_contract.approval_status, "original_filename": original_filename},
         )
         return response
     except ValueError as e:
@@ -426,8 +684,9 @@ async def update_contract(
     """
     更新合同信息
     """
+    operator_name = _get_operator_name(request)
     try:
-        contract = ContractService.update_contract(db, contract_id, contract_update)
+        contract = ContractService.update_contract(db, contract_id, contract_update, operator=operator_name)
         if not contract:
             raise HTTPException(status_code=404, detail="合同不存在")
         

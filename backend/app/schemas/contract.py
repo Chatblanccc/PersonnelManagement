@@ -123,6 +123,21 @@ class ContractTimelineEvent(BaseModel):
         from_attributes = True
 
 
+class ContractTimelineEventCreate(BaseModel):
+    event_type: str
+    title: str
+    description: Optional[str] = None
+    operator: Optional[str] = None
+    extra_data: Optional[dict[str, Any]] = None
+
+
+class ContractTimelineEventUpdate(BaseModel):
+    event_type: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    extra_data: Optional[dict[str, Any]] = None
+
+
 class ContractAttachmentItem(BaseModel):
     id: str
     name: str
@@ -167,6 +182,13 @@ class ContractLifecycleResponse(BaseModel):
     logs: List[ContractLogItem]
     summary: Optional[ContractLifecycleSummary] = None
 
+
+class ContractLifecycleRefreshResponse(BaseModel):
+    timeline: List[ContractTimelineEvent]
+    attachments: List[ContractAttachmentItem]
+    logs: List[ContractLogItem]
+    summary: Optional[ContractLifecycleSummary] = None
+
 # 分页响应
 class PaginatedResponse(BaseModel):
     data: list[Any]
@@ -191,6 +213,7 @@ class OcrResult(BaseModel):
     confidence: dict[str, float]
     raw_text: str
     low_confidence_fields: list[str] = Field(default_factory=list)
+    original_filename: Optional[str] = None
 
 
 class ContractTemplate(BaseModel):

@@ -8,6 +8,10 @@ import type {
   DashboardStats,
   SidebarSummary,
   ContractLifecycleDetail,
+  ContractTimelineEvent,
+  CreateTimelineEventPayload,
+  UpdateTimelineEventPayload,
+  ContractAttachment,
   ApprovalTaskListResponse,
   ApprovalTaskQuery,
   ApprovalStatsOverview,
@@ -45,6 +49,53 @@ export const updateContract = async (id: string, data: Partial<Contract>): Promi
 
 export const deleteContract = async (id: string): Promise<void> => {
   return apiClient.delete(`/contracts/${id}`)
+}
+
+export const createContractTimelineEvent = async (
+  contractId: string,
+  payload: CreateTimelineEventPayload,
+): Promise<ContractTimelineEvent> => {
+  return apiClient.post(`/contracts/${contractId}/lifecycle/events`, payload)
+}
+
+export const updateContractTimelineEvent = async (
+  contractId: string,
+  eventId: string,
+  payload: UpdateTimelineEventPayload,
+): Promise<ContractTimelineEvent> => {
+  return apiClient.patch(`/contracts/${contractId}/lifecycle/events/${eventId}`, payload)
+}
+
+export const deleteContractTimelineEvent = async (contractId: string, eventId: string): Promise<void> => {
+  return apiClient.delete(`/contracts/${contractId}/lifecycle/events/${eventId}`)
+}
+
+export const uploadContractAttachment = async (
+  contractId: string,
+  file: File,
+  options?: { name?: string },
+): Promise<ContractAttachment> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (options?.name) {
+    formData.append('name', options.name)
+  }
+
+  return apiClient.post(`/contracts/${contractId}/attachments`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+}
+
+export const deleteContractAttachment = async (contractId: string, attachmentId: string): Promise<void> => {
+  return apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`)
+}
+
+export const downloadContractAttachment = async (contractId: string, attachmentId: string): Promise<Blob> => {
+  return apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  })
 }
 
 export const exportContracts = async (query: ContractQuery): Promise<Blob> => {
@@ -97,8 +148,13 @@ export const uploadContract = async (file: File, options?: UploadContractOptions
   })
 }
 
-export const createContract = async (data: Partial<Contract>): Promise<Contract> => {
-  return apiClient.post('/contracts', data)
+export const createContract = async (
+  data: Partial<Contract>,
+  originalFilename?: string,
+): Promise<Contract> => {
+  return apiClient.post('/contracts', data, {
+    params: originalFilename ? { original_filename: originalFilename } : undefined,
+  })
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {

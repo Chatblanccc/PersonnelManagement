@@ -84,25 +84,88 @@ class FileStorageService:
 
     def load_decrypted(self, relative_path: str) -> bytes:
         """读取并解密指定相对路径的文件内容。"""
-        absolute_path = self._resolve_path(relative_path)
-        encrypted = absolute_path.read_bytes()
-        return _cipher.decrypt(encrypted)
+
+        last_error: Optional[Exception] = None
+        for root in self._candidate_roots():
+            try:
+                absolute_path = self._resolve_path(relative_path, base_root=root)
+                encrypted = absolute_path.read_bytes()
+                return _cipher.decrypt(encrypted)
+            except FileNotFoundError as exc:
+                last_error = exc
+                continue
+            except ValueError as exc:
+                last_error = exc
+                continue
+
+        if last_error:
+            raise last_error
+        raise FileNotFoundError("合同文件不存在")
 
     def delete(self, relative_path: str) -> None:
         """删除指定相对路径的合同文件。"""
-        absolute_path = self._resolve_path(relative_path)
-        if absolute_path.exists():
-            absolute_path.unlink()
+        for root in self._candidate_roots():
+            try:
+                absolute_path = self._resolve_path(relative_path, base_root=root)
+            except ValueError:
+                continue
+            if absolute_path.exists():
+                absolute_path.unlink()
+                break
 
     def exists(self, relative_path: str) -> bool:
         """判断合同文件是否存在。"""
-        return self._resolve_path(relative_path).exists()
+        for root in self._candidate_roots():
+            try:
+                absolute_path = self._resolve_path(relative_path, base_root=root)
+            except ValueError:
+                continue
+            if absolute_path.exists():
+                return True
+        return False
 
-    def _resolve_path(self, relative_path: str) -> Path:
+    def _candidate_roots(self) -> list[Path]:
+        """生成可能的存储根路径列表，用于兼容不同环境。"""
+        roots = [self._root]
+        fallback_roots = [Path("/data/contracts"), Path("/app/storage/contracts"), Path("/app/storage")]
+
+        for fallback in fallback_roots:
+            try:
+                resolved = fallback.resolve()
+            except Exception:
+                continue
+            if resolved != self._root and resolved not in roots and resolved.exists():
+                roots.append(resolved)
+
+        return roots
+
+    def _resolve_path(self, relative_path: str, *, base_root: Optional[Path] = None) -> Path:
         """根据相对路径解析文件绝对路径，防止目录穿越。"""
+        base = base_root or self._root
         safe_relative = Path(relative_path)
-        normalized = (self._root / safe_relative).resolve()
-        if not str(normalized).startswith(str(self._root)):
+
+        # 兼容旧数据：如果传入的是绝对路径或包含根目录名，转换为相对路径
+        if safe_relative.is_absolute():
+            try:
+                safe_relative = safe_relative.relative_to(base)
+            except ValueError:
+                # 如果不能与当前 base 匹配，尝试其他 root
+                for candidate in self._candidate_roots():
+                    try:
+                        safe_relative = safe_relative.relative_to(candidate)
+                        base = candidate
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    raise ValueError("非法的合同文件路径")
+        else:
+            parts = safe_relative.parts
+            if parts and parts[0] in {base.name, "contracts", "storage"}:
+                safe_relative = Path(*parts[1:])
+
+        normalized = (base / safe_relative).resolve()
+        if not str(normalized).startswith(str(base)):
             raise ValueError("非法的合同文件路径")
         return normalized
 

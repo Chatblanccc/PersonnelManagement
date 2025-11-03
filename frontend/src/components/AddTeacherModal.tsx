@@ -127,7 +127,7 @@ const AddTeacherModal = ({ open, onClose }: AddTeacherModalProps) => {
         }
       }
 
-      await createContract.mutateAsync(payload)
+      await createContract.mutateAsync({ data: payload })
       form.resetFields()
       onClose()
     } catch (error) {
