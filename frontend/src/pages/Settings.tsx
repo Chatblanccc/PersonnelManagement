@@ -22,7 +22,7 @@ import {
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { fieldGroups, staticFieldConfigs, sensitiveFields, getFieldTypeLabel } from '@/utils/fieldMapping'
+import { fieldGroups, staticFieldConfigs, getFieldTypeLabel } from '@/utils/fieldMapping'
 import {
   getWorkflowConfig,
   updateWorkflowConfig,
@@ -38,18 +38,6 @@ import type {
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
-
-interface OcrFormValues {
-  enableBatch: boolean
-  autoSplitPdf: boolean
-  lowConfidenceThreshold: number
-  notifyChannels: string[]
-  selectedModel: string
-  excelTemplate: string
-  regexProfile: string
-  doubleCheckFields: string[]
-  reviewQueueDaily: number
-}
 
 interface WorkflowStageFormValue {
   owner_id?: string | null
@@ -75,26 +63,11 @@ interface FieldFormValues {
   order_index?: number
 }
 
-const notificationChannelOptions = [
-  { label: '企业微信', value: 'wechat' },
-  { label: '邮件', value: 'email' },
-  { label: '短信', value: 'sms' },
-]
-
-const ocrModelOptions = [
-  { label: 'PaddleOCR v4 · 中文通用', value: 'paddle_ocr_v4' },
-  { label: 'PaddleOCR v3 · 轻量模型', value: 'paddle_ocr_v3' },
-]
-
-const excelTemplateOptions = [
-  { label: '教师合同模板 · 标准版', value: 'default_contract' },
-  { label: '教师合同模板 · 精简版', value: 'lite_contract' },
-  { label: '教师合同模板 · 国际部', value: 'international_contract' },
-]
-
 const Settings = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') ?? 'workflow'
+  const activeTabParam = searchParams.get('tab') ?? 'workflow'
+  const allowedTabs = useMemo(() => new Set(['workflow', 'fields']), [])
+  const activeTab = allowedTabs.has(activeTabParam) ? activeTabParam : 'workflow'
 
   const [fieldForm] = Form.useForm<FieldFormValues>()
   const [fieldsLoading, setFieldsLoading] = useState(false)
@@ -136,33 +109,6 @@ const Settings = () => {
   }, [customFields])
 
   const customGroupedFields = groupedFieldConfigs
-
-  const sensitiveFieldOptions = useMemo(
-    () =>
-      sensitiveFields.map((fieldKey) => {
-        const found = staticFieldConfigs.find((item) => item.key === fieldKey)
-        return {
-          label: found?.label ?? fieldKey,
-          value: fieldKey,
-        }
-      }),
-    [],
-  )
-
-  const defaultOcrConfig: OcrFormValues = useMemo(
-    () => ({
-      enableBatch: true,
-      autoSplitPdf: true,
-      lowConfidenceThreshold: 0.8,
-      notifyChannels: ['wechat', 'email'],
-      selectedModel: 'paddle_ocr_v4',
-      excelTemplate: 'default_contract',
-      regexProfile: '白云实验学校 · 合同要素正则模板 V1',
-      doubleCheckFields: ['id_number', 'phone_number', 'address'],
-      reviewQueueDaily: 30,
-    }),
-    [],
-  )
 
   const [messageApi, contextHolder] = message.useMessage()
   const queryClient = useQueryClient()
@@ -206,30 +152,6 @@ const Settings = () => {
         value: user.id,
       })),
     [availableUsers],
-  )
-
-  const reminderSummaries = useMemo(
-    () =>
-      (workflowConfig?.stages ?? []).flatMap((stage) =>
-        (stage.reminders ?? []).map((reminder, index) => {
-          const ownerLabel = stage.owner?.full_name || stage.owner?.username || '待指派'
-          const timing =
-            reminder.offset_days === 0
-              ? '当日提醒'
-              : reminder.offset_days > 0
-                ? `事件后 ${reminder.offset_days} 天`
-                : `提前 ${Math.abs(reminder.offset_days)} 天`
-          return {
-            key: `${stage.key}-${index}`,
-            stageName: stage.name,
-            timing,
-            owner: ownerLabel,
-            channels: reminder.channels,
-            notes: reminder.notes,
-          }
-        }),
-      ),
-    [workflowConfig],
   )
 
   const saveWorkflowMutation = useMutation({
@@ -300,10 +222,6 @@ const Settings = () => {
     }
   }
 
-  const [ocrForm] = Form.useForm<OcrFormValues>()
-  const [ocrPreview, setOcrPreview] = useState<OcrFormValues>(defaultOcrConfig)
-  const [savingOcr, setSavingOcr] = useState(false)
-
   const handleTabChange = (key: string) => {
     const next = new URLSearchParams(searchParams)
     if (key === 'workflow') {
@@ -314,36 +232,14 @@ const Settings = () => {
     setSearchParams(next)
   }
 
-  const handleSaveOcrConfig = async (values: OcrFormValues) => {
-    try {
-      setSavingOcr(true)
-      await new Promise((resolve) => setTimeout(resolve, 600))
-      setOcrPreview(values)
-      messageApi.success('OCR 配置已保存（示例操作）')
-    } finally {
-      setSavingOcr(false)
-    }
-  }
-
-  const handleResetOcrConfig = () => {
-    ocrForm.setFieldsValue(defaultOcrConfig)
-    setOcrPreview(defaultOcrConfig)
-    messageApi.info('已恢复默认 OCR 配置模板')
-  }
-
   const workflowTabContent = (
     <Space direction="vertical" size="large" className="w-full">
       <Card className="rounded-2xl border border-blue-100 bg-blue-50/60 p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <Title level={4} className="!mb-1 !text-slate-800">
-              合同生命周期节点
-            </Title>
-            <Text type="secondary">根据标准人事流程梳理节点，可指派负责人并设置 SLA。</Text>
-          </div>
-          <Button type="primary" ghost disabled>
-            新增流程阶段
-          </Button>
+        <div className="flex items-center gap-4 flex-wrap">
+          <Title level={4} className="!mb-1 !text-slate-800">
+            合同生命周期节点
+          </Title>
+          <Text type="secondary">根据标准人事流程梳理节点，可指派负责人并设置 SLA。</Text>
         </div>
         <Divider className="!my-4" />
         <Steps
@@ -443,50 +339,6 @@ const Settings = () => {
         </Form>
       )}
 
-      <Card className="rounded-2xl border border-amber-100 bg-amber-50/70 shadow-sm">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <Title level={5} className="!mb-1 !text-amber-700">
-              提醒策略与升级路线
-            </Title>
-            <Text className="text-sm text-amber-700/80">
-              支持企业微信、短信、邮件等多渠道提醒，确保试用评估与续签节点准时完成。
-            </Text>
-          </div>
-          <Button type="primary" disabled>
-            配置提醒策略
-          </Button>
-        </div>
-        <Divider className="!my-4" />
-        {reminderSummaries.length ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {reminderSummaries.map((plan) => (
-              <div
-                key={plan.key}
-                className="rounded-2xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-slate-600 shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium text-slate-700">{plan.stageName}</div>
-                  <Tag color="processing">{plan.owner}</Tag>
-                </div>
-                <div className="mt-2 text-xs text-slate-500">{plan.timing}</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {plan.channels.map((channel) => (
-                    <Tag key={channel} color="blue">
-                      {channel.toUpperCase()}
-                    </Tag>
-                  ))}
-                </div>
-                {plan.notes ? <div className="mt-2 text-xs text-slate-500">{plan.notes}</div> : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-amber-200 bg-white/70 px-4 py-6 text-center text-sm text-amber-700/80">
-            当前流程尚未配置提醒策略。
-          </div>
-        )}
-      </Card>
     </Space>
   )
 
@@ -632,136 +484,6 @@ const Settings = () => {
     </Space>
   )
 
-  const ocrTabContent = (
-    <Space direction="vertical" size="large" className="w-full">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <Title level={4} className="!mb-1 !text-slate-800">
-            OCR 引擎配置
-          </Title>
-          <Text type="secondary">配置 PaddleOCR 参数、置信度阈值、批量任务与复核策略。</Text>
-        </div>
-        <Button type="link" onClick={handleResetOcrConfig}>
-          恢复默认模板
-        </Button>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card className="rounded-2xl border border-white/60 bg-white/95 shadow-[0_16px_40px_rgba(37,99,235,0.08)]">
-          <Form<OcrFormValues>
-            form={ocrForm}
-            layout="vertical"
-            initialValues={defaultOcrConfig}
-            onValuesChange={(_, allValues) => setOcrPreview(allValues)}
-            onFinish={handleSaveOcrConfig}
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Form.Item<OcrFormValues>
-                name="selectedModel"
-                label="OCR 模型"
-                rules={[{ required: true, message: '请选择 OCR 模型' }]}
-              >
-                <Select options={ocrModelOptions} placeholder="请选择 OCR 模型" />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="lowConfidenceThreshold"
-                label="低置信度阈值"
-                tooltip="低于此阈值的字段将标记为待复核"
-                rules={[{ required: true, message: '请设置低置信度阈值' }]}
-              >
-                <InputNumber<number>
-                  min={0.5}
-                  max={0.95}
-                  step={0.05}
-                  className="w-full"
-                  formatter={(value) =>
-                    value !== undefined && value !== null
-                      ? `${Math.round(Number(value) * 100)}%`
-                      : ''
-                  }
-                  parser={(value) => Number((value ?? '').replace('%', '')) / 100}
-                />
-              </Form.Item>
-              <Form.Item<OcrFormValues> name="enableBatch" label="启用批量任务" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item<OcrFormValues> name="autoSplitPdf" label="自动拆分 PDF" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="notifyChannels"
-                label="提醒渠道"
-                rules={[{ required: true, message: '请选择提醒渠道' }]}
-              >
-                <Select
-                  mode="multiple"
-                  placeholder="请选择提醒渠道"
-                  options={notificationChannelOptions}
-                  allowClear
-                />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="reviewQueueDaily"
-                label="每日复核容量"
-                tooltip="系统每日分配的人工复核上限"
-              >
-                <InputNumber min={10} max={100} step={5} className="w-full" suffix="份" />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="excelTemplate"
-                label="导出模板"
-                rules={[{ required: true, message: '请选择导出模板' }]}
-              >
-                <Select options={excelTemplateOptions} placeholder="请选择导出模板" />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="regexProfile"
-                label="正则解析模板"
-                rules={[{ required: true, message: '请输入正则解析模板名称' }]}
-              >
-                <Input placeholder="例如：白云实验学校 · 合同要素正则模板" />
-              </Form.Item>
-              <Form.Item<OcrFormValues>
-                name="doubleCheckFields"
-                label="强制人工复核字段"
-                tooltip="即使置信度达标也需要人工确认的敏感字段"
-              >
-                <Select mode="multiple" options={sensitiveFieldOptions} allowClear />
-              </Form.Item>
-            </div>
-
-            <Divider className="!my-4" />
-            <Space>
-              <Button type="primary" htmlType="submit" loading={savingOcr}>
-                保存配置
-              </Button>
-              <Button onClick={() => ocrForm.submit()} disabled={savingOcr}>
-                测试识别任务
-              </Button>
-            </Space>
-          </Form>
-        </Card>
-
-        <Card className="rounded-2xl border border-blue-100 bg-blue-50/70 shadow-sm">
-          <Title level={5} className="!mb-2 !text-blue-700">
-            执行摘要
-          </Title>
-          <Divider className="!my-3 !border-blue-200" />
-          <Space direction="vertical" size={10} className="w-full text-sm text-blue-900/80">
-            <div>低置信度阈值：{Math.round((ocrPreview.lowConfidenceThreshold ?? 0.8) * 100)}%</div>
-            <div>批量任务：{ocrPreview.enableBatch ? '已启用' : '未启用'}</div>
-            <div>PDF 自动拆分：{ocrPreview.autoSplitPdf ? '开启' : '关闭'}</div>
-            <div>提醒渠道：{(ocrPreview.notifyChannels ?? []).map((channel) => notificationChannelOptions.find((opt) => opt.value === channel)?.label ?? channel).join(' · ') || '未设置'}</div>
-            <div>每日复核容量：{ocrPreview.reviewQueueDaily ?? 30} 份</div>
-            <div>强制复核字段：{(ocrPreview.doubleCheckFields ?? []).map((fieldKey) => staticFieldConfigs.find((item) => item.key === fieldKey)?.label ?? fieldKey).join(' · ') || '未设置'}</div>
-            <div>当前模型：{ocrModelOptions.find((opt) => opt.value === ocrPreview.selectedModel)?.label ?? '未选择'}</div>
-            <div>导出模板：{excelTemplateOptions.find((opt) => opt.value === ocrPreview.excelTemplate)?.label ?? '默认模板'}</div>
-          </Space>
-        </Card>
-      </div>
-    </Space>
-  )
-
   const tabItems = useMemo(
     () => [
       {
@@ -774,13 +496,8 @@ const Settings = () => {
         label: '字段配置管理',
         children: fieldsTabContent,
       },
-      {
-        key: 'ocr',
-        label: 'OCR 引擎配置',
-        children: ocrTabContent,
-      },
     ],
-    [workflowTabContent, fieldsTabContent, ocrTabContent],
+    [workflowTabContent, fieldsTabContent],
   )
 
   return (
